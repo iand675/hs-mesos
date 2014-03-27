@@ -23,7 +23,7 @@ public:
 		this->taskKilledCb = taskKilledCb;
 		this->frameworkMessageCb = frameworkMessageCb;
 		this->shutdownCb = shutdownCb;
-		this->errorC = errorCb;
+		this->errorCb = errorCb;
 	}
 
 	void registered(ExecutorDriver* driver,
@@ -31,47 +31,47 @@ public:
 			const FrameworkInfo& frameworkInfo,
 			const SlaveInfo& slaveInfo)
 	{
-		config->onExecutorRegistered(driver, &executorInfo, &frameworkInfo, &slaveInfo);
+		this->registeredCb(driver, &executorInfo, &frameworkInfo, &slaveInfo);
 	}
 
 	void reregistered(ExecutorDriver* driver,
 			const SlaveInfo& slaveInfo)
 	{
-		config->onExecutorReRegistered(driver, &slaveInfo);
+		this->reRegisteredCb(driver, &slaveInfo);
 	}
 
 	void disconnected(ExecutorDriver* driver)
 	{
-		config->onExecutorDisconnected(driver);
+		this->disconnectedCb(driver);
 	}
 
 	void launchTask(ExecutorDriver* driver,
 			const TaskInfo& taskInfo)
 	{
-		config->onLaunchTask(driver, &taskInfo);
+		this->launchTaskCb(driver, &taskInfo);
 	}
 
 	void killTask(ExecutorDriver* driver,
 			const TaskID& taskId)
 	{
-		config->onTaskKilled(driver, &taskId);
+		this->taskKilledCb(driver, &taskId);
 	}
 
 	void frameworkMessage(ExecutorDriver* driver,
 			const std::string& str)
 	{
-		config->onFrameworkMessage(driver, str.size(), str.data());
+		this->frameworkMessageCb(driver, str.size(), str.data());
 	}
 
 	void shutdown(ExecutorDriver* driver)
 	{
-		config->onShutdown(driver);
+		this->shutdownCb(driver);
 	}
 
 	void error(ExecutorDriver* driver,
 			const std::string& str)
 	{
-		config->onError(driver, str.size(), str.data());
+		this->errorCb(driver, str.size(), str.data());
 	}
 private:
 	OnExecutorRegisteredCallback* registeredCb;
@@ -105,47 +105,50 @@ void destroyExecutor(mesos::Executor* executor)
 	delete executor;
 }
 
-/*
 // ExecutorDriver
-ExecutorDriver* createExecutorDriver(Executor* executor);
-void deleteExecutorDriver(ExecutorDriver* driver)
+ExecutorDriver* createExecutorDriver(Executor* executor)
+{
+	return new MesosExecutorDriver(executor);
+}
+
+void destroyExecutorDriver(ExecutorDriver* driver)
 {
 	delete driver;
 }
 
-Status* startExecutorDriver(ExecutorDriver* driver)
+int startExecutorDriver(ExecutorDriver* driver)
 {
-	driver->start();
+	return driver->start();
 }
 
-Status* stopExecutorDriver(ExecutorDriver* driver)
+int stopExecutorDriver(ExecutorDriver* driver)
 {
-	driver->stop();
+	return driver->stop();
 }
 
-Status* abortExecutorDriver(ExecutorDriver* driver)
+int abortExecutorDriver(ExecutorDriver* driver)
 {
-	driver->abort();
+	return driver->abort();
 }
 
-Status* joinExecutorDriver(ExecutorDriver* driver)
+int joinExecutorDriver(ExecutorDriver* driver)
 {
-	driver->join();
+	return driver->join();
 }
 
-Status* runExecutorDriver(ExecutorDriver* driver)
+int runExecutorDriver(ExecutorDriver* driver)
 {
-	driver->run();
+	return driver->run();
 }
 
-Status* sendStatusUpdate(ExecutorDriver* driver, TaskStatus* status)
+int sendExecutorDriverStatusUpdate(ExecutorDriver* driver, TaskStatus* status)
 {
-	driver->sendStatusUpdate(status);
+	return driver->sendStatusUpdate(*status);
 }
 
-Status* sendFrameworkMessage(ExecutorDriver* driver, int stringLength, char* stringData)
+int sendExecutorDriverFrameworkMessage(ExecutorDriver* driver, int stringLength, char* stringData)
 {
 	std::string message(stringData, stringLength);
-	driver->sendFrameworkMessage(message);
+	return driver->sendFrameworkMessage(message);
 }
-*/
+

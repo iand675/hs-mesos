@@ -1,9 +1,11 @@
 module System.Mesos.Types (
+  CPPValue(..),
   SchedulerDriver,
   Scheduler,
   Status(..),
   FrameworkID(..),
   SlaveID(..),
+  OfferID(..),
   TaskID(..),
   ExecutorID(..),
   ContainerID(..),

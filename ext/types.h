@@ -106,53 +106,6 @@ extern "C" {
 
 	extern void destroyCommandURI(CommandURIPtr commandURI);
 	// **********************************************************************
-	extern CommandInfoPtr toCommandInfo(CommandURIPtr* uris,
-		int urisLen,
-		EnvironmentPtr env,
-		char* value,
-		int valueLen);
-
-	extern void fromCommandInfo(CommandInfoPtr info,
-		CommandURIPtr** uris,
-		int* urisLen,
-		bool* envSet,
-		EnvironmentPtr* env,
-		char** value,
-		int* valueLen);
-
-	extern void destroyCommandInfo(CommandInfoPtr info);
-	// **********************************************************************
-	
-	extern ExecutorInfoPtr toExecutorInfo(ExecutorIDPtr eid,
-		FrameworkIDPtr fid,
-		CommandInfoPtr ci,
-		ResourcePtr* resources,
-		int resourcesLen,
-		char* name,
-		int nameLen,
-		char* source,
-		int sourceLen,
-		char* data,
-		int dataLen);
-
-	extern void fromExecutorInfo(ExecutorInfoPtr info,
-		ExecutorIDPtr* eid,
-		FrameworkIDPtr* fid,
-		CommandInfoPtr* ci,
-		ResourcePtr** resources,
-		int* resourcesLen,
-		bool* nameSet,
-		char* name,
-		int* nameLen,
-		bool* sourceSet,
-		char* source,
-		int* sourceLen,
-		bool* dataSet,
-		char* data,
-		int* dataLen);
-
-	extern void destroyExecutorInfo(ExecutorInfoPtr info);
-	// **********************************************************************
 	extern MasterInfoPtr toMasterInfo(char* infoID,
 		int infoIDLen,
 		unsigned int infoIP,
@@ -196,18 +149,6 @@ extern "C" {
 		bool* checkpoint);
 	extern void destroySlaveInfo(SlaveInfoPtr slaveInfo);
 	// **********************************************************************
-
-	extern RequestPtr toRequest(SlaveIDPtr slaveID,
-		ResourcePtr* resources,
-		int resourceLen);
-	extern void fromRequest(RequestPtr request,
-		bool* slaveIDSet,
-		SlaveIDPtr* slaveID,
-		ResourcePtr** resources,
-		int* resourceLen);
-	extern void destroyRequest(RequestPtr request);
-	
-	// **********************************************************************
 	extern OfferPtr toOffer(OfferIDPtr offerID,
 		FrameworkIDPtr frameworkID,
 		SlaveIDPtr slaveID,
@@ -239,8 +180,8 @@ extern "C" {
 		SlaveIDPtr slaveID,
 		ResourcePtr* resources,
 		int resourcesLen,
-		ExecutorInfoPtr* executorInfo,
-		CommandInfoPtr* commandInfo,
+		ExecutorInfoPtr executorInfo,
+		CommandInfoPtr commandInfo,
 		char* data,
 		int dataLen);
 	extern void fromTaskInfo(TaskInfoPtr taskInfo,
@@ -250,30 +191,30 @@ extern "C" {
 		SlaveIDPtr* slaveID,
 		ResourcePtr** resources,
 		int* resourcesLen,
-		ExecutorInfoPtr** executorInfo,
-		CommandInfoPtr** commandInfo,
-		char* data,
-		int dataLen);
-	extern void deleteTaskInfo(TaskInfoPtr taskInfo);
+		ExecutorInfoPtr* executorInfo,
+		CommandInfoPtr* commandInfo,
+		char** data,
+		int* dataLen);
+	extern void destroyTaskInfo(TaskInfoPtr taskInfo);
 
 	// **********************************************************************
 	extern TaskStatusPtr toTaskStatus(TaskIDPtr taskID,
 		int state,
+		char* message,
+		int messageLen,
+		char* data,
+		int dataLen,
+		SlaveIDPtr slaveID,
+		double* timestamp);
+	extern void fromTaskStatus(TaskStatusPtr status,
+		TaskIDPtr* taskID,
+		int* state,
 		char** message,
 		int* messageLen,
 		char** data,
 		int* dataLen,
 		SlaveIDPtr* slaveID,
 		double* timestamp);
-	extern void fromTaskStatus(TaskStatusPtr,
-		TaskIDPtr* taskID,
-		int* state,
-		char*** message,
-		int** messageLen,
-		char*** data,
-		int** dataLen,
-		SlaveIDPtr** slaveID,
-		double** timestamp);
 	extern void destroyTaskStatus(TaskStatusPtr taskStatus);
 	
 	// **********************************************************************
@@ -312,5 +253,203 @@ extern "C" {
 		char** secret,
 		int* secretLen);
 	extern void destroyCredential(CredentialPtr credential);
+	// **********************************************************************
+	extern ResourcePtr toResource(char* name,
+		int nameLen,
+		ValuePtr value,
+		char* role,
+		int roleLen);
+	extern void fromResource(ResourcePtr resource,
+		char** name,
+		int* nameLen,
+		ValuePtr* value,
+		char** role,
+		int* roleLen);
+	extern void destroyResource(ResourcePtr resource);
+	// **********************************************************************
+	extern ExecutorInfoPtr toExecutorInfo(ExecutorIDPtr executorID,
+		FrameworkIDPtr frameworkID,
+		CommandInfoPtr commandInfo,
+		ResourcePtr* resources,
+		int resourceLen,
+		char* name,
+		int nameLen,
+		char* source,
+		int sourceLen,
+		char* data,
+		int dataLen);
+	extern void fromExecutorInfo(ExecutorInfoPtr executorInfo,
+		ExecutorIDPtr* executorID,
+		FrameworkIDPtr* frameworkID,
+		CommandInfoPtr* commandInfo,
+		ResourcePtr** resources,
+		int* resourcesLen,
+		char** name,
+		int* nameLen,
+		char** source,
+		int* sourceLen,
+		char** data,
+		int* dataLen);
+	extern void destroyExecutorInfo(ExecutorInfoPtr executorInfo);
+	// **********************************************************************
+	extern AttributePtr toAttribute(char* name,
+		int nameLen,
+		ValuePtr value);
+	extern void fromAttribute(AttributePtr attribute,
+		char** name,
+		int* nameLen,
+		ValuePtr* value);
+	extern void destroyAttribute(AttributePtr attribute);
+	// **********************************************************************
+	extern RequestPtr toRequest(SlaveIDPtr slaveID,
+		ResourcePtr* resources,
+		int resourceLen);
+	extern void fromRequest(RequestPtr request,
+		SlaveIDPtr* slaveID,
+		ResourcePtr** resources,
+		int* resourceLen);
+	extern void destroyRequest(RequestPtr request);
+	// **********************************************************************
+	extern ValuePtr toValue(int type,
+		double scalar,
+		unsigned long* lows,
+		unsigned long* highs,
+		int rangeLen,
+		char** strings,
+		int* stringLens,
+		int stringsLen,
+		char* text,
+		int textLen);
+
+	extern void fromValue(ValuePtr value,
+		int* type,
+		double* scalar,
+		unsigned long** lows,
+		unsigned long** highs,
+		int* rangeLen,
+		char*** strings,
+		int** stringLens,
+		int* stringsLen,
+		char** text,
+		int* textLen);
+
+	extern void destroyValue(ValuePtr value);
+	// **********************************************************************
+	extern CommandInfoPtr toCommandInfo(CommandInfo_URIPtr* uris,
+		int urisLen,
+		EnvironmentPtr environment,
+		char* value,
+		int valueLen);
+
+	extern void fromCommandInfo(CommandInfoPtr info,
+		CommandInfo_URIPtr** uris,
+		int* urisLen,
+		EnvironmentPtr* environment,
+		char** value,
+		int* valueLen);
+
+	extern void destroyCommandInfo(CommandInfoPtr info);
+	// **********************************************************************
+	extern ResourceUsagePtr toResourceUsage(SlaveIDPtr slaveID,
+		FrameworkIDPtr frameworkID,
+		ExecutorIDPtr executorID,
+		char* executorName,
+		int nameLen,
+		TaskIDPtr taskID,
+		ResourceStatisticsPtr statistics);
+	
+	extern void fromResourceUsage(ResourceUsagePtr usage,
+		SlaveIDPtr* slaveID,
+		FrameworkIDPtr* frameworkID,
+		ExecutorIDPtr* executorID,
+		char** executorName,
+		int* nameLen,
+		TaskIDPtr* taskID,
+		ResourceStatisticsPtr* statistics);
+
+	extern void destroyResourceUsage(ResourceUsagePtr usage);
+	// **********************************************************************
+	extern OfferPtr toOffer(OfferIDPtr offerID,
+		FrameworkIDPtr frameworkID,
+		SlaveIDPtr slaveID,
+		char* hostname,
+		int hostnameLen,
+		ResourcePtr* resources,
+		int resourcesLen,
+		AttributePtr* attributes,
+		int attributeLen,
+		ExecutorIDPtr* executorIDs,
+		int idsLen);
+
+	void fromOffer(OfferPtr offer,
+		OfferIDPtr* offerID,
+		FrameworkIDPtr* frameworkID,
+		SlaveIDPtr* slaveID,
+		char** hostname,
+		int* hostnameLen,
+		ResourcePtr** resources,
+		int* resourcesLen,
+		AttributePtr** attributes,
+		int* attributesLen,
+		ExecutorIDPtr** executorIDs,
+		int* idsLen);
+
+	extern void destroyOffer(OfferPtr offer);
+	// **********************************************************************
+	extern void destroyResourceStatistics(ResourceStatisticsPtr statistics);
+	extern ResourceStatisticsPtr toResourceStatistics(double timestamp,
+		double* cpusUserTimeSecs,
+		double* cpusSystemTimeSecs,
+		double cpusLimit,
+		unsigned int* cpusPeriods,
+		unsigned int* cpusThrottled,
+		double* cpusThrottledTimeSecs,
+		unsigned long* memoryResidentSetSize,
+		unsigned long* memoryLimitBytes,
+		unsigned long* memoryFileBytes,
+		unsigned long* memoryAnonymousBytes,
+		unsigned long* memoryMappedFileBytes);
+	extern void fromResourceStatistics(ResourceStatisticsPtr stats,
+		double timestamp,
+		double* cpusUserTimeSecs,
+		bool* cpusUserTimeSecsSet,
+		double* cpusSystemTimeSecs,
+		bool* cpusSystemTimeSecsSet,
+		double cpusLimit,
+		unsigned int* cpusPeriods,
+		bool* cpusPeriodsSet,
+		unsigned int* cpusThrottled,
+		bool* cpusThrottledSet,
+		double* cpusThrottledTimeSecs,
+		bool* cpusThrottledTimeSecsSet,
+		unsigned long* memoryResidentSetSize,
+		bool* memoryResidentSetSizeSet,
+		unsigned long* memoryLimitBytes,
+		bool* memoryLimitBytesSet,
+		unsigned long* memoryFileBytes,
+		bool* memoryFileBytesSet,
+		unsigned long* memoryAnonymousBytes,
+		bool* memoryAnonymousBytesSet,
+		unsigned long* memoryMappedFileBytes,
+		bool* memoryMappedFileBytesSet);
+
+	// **********************************************************************
+	extern ParameterPtr toParameter(char* key,
+		int keyLen,
+		char* value,
+		int valueLen);
+	extern void fromParameter(ParameterPtr parameter,
+		char** keyP,
+		int* keyLenP,
+		char** valueP,
+		int* valueLenP);
+	extern void destroyParameter(ParameterPtr parameter);
+	// **********************************************************************
+	extern ParametersPtr toParameters(ParameterPtr* parameters,
+		int pLen);
+	extern void fromParameters(ParametersPtr params,
+		ParameterPtr** parameters,
+		int* pLen);
+	extern void destroyParameters(ParametersPtr params);
 };
 

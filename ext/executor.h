@@ -1,4 +1,5 @@
 #include <mesos/executor.hpp>
+#include "types.h"
 
 typedef void OnExecutorRegisteredCallback(mesos::ExecutorDriver*,
 		const mesos::ExecutorInfo*,
@@ -33,4 +34,13 @@ extern ExecutorPtr createExecutor(
 
 extern void destroyExecutor(ExecutorPtr);
 
+extern ExecutorDriverPtr createExecutorDriver(ExecutorPtr);
+extern void destroyExecutorDriver(ExecutorDriverPtr);
+extern int startExecutorDriver(ExecutorDriverPtr);
+extern int stopExecutorDriver(ExecutorDriverPtr);
+extern int abortExecutorDriver(ExecutorDriverPtr);
+extern int joinExecutorDriver(ExecutorDriverPtr);
+extern int runExecutorDriver(ExecutorDriverPtr);
+extern int sendExecutorDriverStatusUpdate(ExecutorDriverPtr, TaskStatusPtr);
+extern int sendExecutorDriverFrameworkMessage(ExecutorDriverPtr, int, char*);
 }

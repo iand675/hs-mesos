@@ -1,6 +1,8 @@
 module System.Mesos.Executor (
+  ToExecutor(..),
   Executor,
-  DynamicExecutor(..),
+  withExecutor,
+  withExecutorDriver,
   createExecutor,
   destroyExecutor,
   ExecutorDriver,
@@ -13,15 +15,32 @@ module System.Mesos.Executor (
   abortExecutorDriver,
   joinExecutorDriver,
   runExecutorDriver,
-  sendExecutorDriverStatusUpdate,
-  sendExecutorDriverFrameworkMessage
+  sendStatusUpdate,
+  sendFrameworkMessage
 ) where
+import Data.ByteString (ByteString, packCStringLen)
+import Data.ByteString.Unsafe (unsafeUseAsCStringLen)
 import Foreign.C
 import Foreign.Marshal.Safe
+import Foreign.Ptr
 import Foreign.Storable
 import System.Mesos.Internal
 
-class Executor a where
+withExecutor :: ToExecutor a => a -> (Executor -> IO b) -> IO b
+withExecutor e f = do
+  executor <- createExecutor e
+  result <- f executor
+  destroyExecutor executor
+  return result
+
+withExecutorDriver :: Executor -> (ExecutorDriver -> IO a) -> IO a
+withExecutorDriver executor f = do
+  driver <- createExecutorDriver executor
+  result <- f driver
+  destroyExecutorDriver driver
+  return result
+
+class ToExecutor a where
   registered :: a -> ExecutorDriver -> ExecutorInfo -> FrameworkInfo -> SlaveInfo -> IO ()
   registered _ _ _ _ _ = return ()
 
@@ -37,7 +56,7 @@ class Executor a where
   taskKilled :: a -> ExecutorDriver -> TaskID -> IO ()
   taskKilled _ _ _ = return ()
 
-  frameworkMessage :: a -> FrameworkMessageCallback
+  frameworkMessage :: a -> ExecutorDriver -> ByteString -> IO ()
   frameworkMessage _ _ _ = return ()
 
   shutdown :: a -> ExecutorDriver -> IO ()
@@ -46,44 +65,44 @@ class Executor a where
   errorMessage :: a -> ExecutorDriver -> ByteString -> IO ()
   errorMessage _ _ _ = return ()
 
-createExecutor :: Executor a => a -> IO Executor
+createExecutor :: ToExecutor a => a -> IO Executor
 createExecutor c = do
-  registeredFun <- wrapRegistered $ \edp eip fip sip -> do
+  registeredFun <- wrapExecutorRegistered $ \edp eip fip sip -> do
     ei <- unmarshal eip
     fi <- unmarshal fip
     si <- unmarshal sip
-    onRegistered (ExecutorDriver edp) ei fi si
-  reRegisteredFun <- wrapReRegistered $ \edp sip -> do
+    registered c (ExecutorDriver edp) ei fi si
+  reRegisteredFun <- wrapExecutorReRegistered $ \edp sip -> do
     si <- unmarshal sip
-    onReRegistered (ExecutorDriver edp)
-  disconnectedFun <- wrapDisconnected $ \edp -> onDisconnected (ExecutorDriver edp)
-  launchTaskFun <- wrapLaunchTask $ \edp tip -> do
+    reRegistered c (ExecutorDriver edp) si
+  disconnectedFun <- wrapExecutorDisconnected $ \edp -> disconnected c (ExecutorDriver edp)
+  launchTaskFun <- wrapExecutorLaunchTask $ \edp tip -> do
     ti <- unmarshal tip
-    onLaunchTask (ExecutorDriver edp) ti
-  taskKilledFun <- wrapTaskKilled $ \edp tip -> do
+    launchTask c (ExecutorDriver edp) ti
+  taskKilledFun <- wrapExecutorTaskKilled $ \edp tip -> do
     ti <- unmarshal tip
-    onTaskKilled (ExecutorDriver edp) ti
-  frameworkMessageFun <- wrapFrameworkMessage $ \edp mcp mlp -> do
-    bs <- packCStringLen (mcp, mlp)
-    onFrameworkMessage (ExecutorDriver edp) bs
-  shutdownFun <- wrapShutdown $ \edp -> onShutdown (ExecutorDriver edp)
-  errorCallback <- wrapError $ \edp mcp mlp ->
-    bs <- packCStringLen (mcp, mlp)
-    onError (ExecutorDriver edp) bs
+    taskKilled c (ExecutorDriver edp) ti
+  frameworkMessageFun <- wrapExecutorFrameworkMessage $ \edp mcp mlp -> do
+    bs <- packCStringLen (mcp, fromIntegral mlp)
+    frameworkMessage c (ExecutorDriver edp) bs
+  shutdownFun <- wrapExecutorShutdown $ \edp -> shutdown c (ExecutorDriver edp)
+  errorCallback <- wrapExecutorError $ \edp mcp mlp -> do
+    bs <- packCStringLen (mcp, fromIntegral mlp)
+    errorMessage c (ExecutorDriver edp) bs
   e <- c_createExecutor registeredFun reRegisteredFun disconnectedFun launchTaskFun taskKilledFun frameworkMessageFun shutdownFun errorCallback
   return $ Executor e registeredFun reRegisteredFun disconnectedFun launchTaskFun taskKilledFun frameworkMessageFun shutdownFun errorCallback
 
 destroyExecutor :: Executor -> IO ()
 destroyExecutor e = do
   c_destroyExecutor $ executorImpl e
-  freeHaskellFunPtr $ rawRegistered e
-  freeHaskellFunPtr $ rawReRegistered e
-  freeHaskellFunPtr $ rawDisconnected e
-  freeHaskellFunPtr $ rawLaunchTask e
-  freeHaskellFunPtr $ rawTaskKilled e
-  freeHaskellFunPtr $ rawFrameworkMessage e
-  freeHaskellFunPtr $ rawShutdown e
-  freeHaskellFunPtr $ rawErrorCallback e
+  freeHaskellFunPtr $ rawExecutorRegistered e
+  freeHaskellFunPtr $ rawExecutorReRegistered e
+  freeHaskellFunPtr $ rawExecutorDisconnected e
+  freeHaskellFunPtr $ rawExecutorLaunchTask e
+  freeHaskellFunPtr $ rawExecutorTaskKilled e
+  freeHaskellFunPtr $ rawExecutorFrameworkMessage e
+  freeHaskellFunPtr $ rawExecutorShutdown e
+  freeHaskellFunPtr $ rawExecutorErrorCallback e
 
 createExecutorDriver :: Executor -> IO ExecutorDriver
 createExecutorDriver = fmap ExecutorDriver . c_createExecutorDriver . executorImpl
@@ -114,6 +133,6 @@ sendStatusUpdate (ExecutorDriver d) s = do
   return $ toStatus result
 
 sendFrameworkMessage :: ExecutorDriver -> ByteString -> IO Status
-sendFrameworkMessage = (ExecutorDriver d) s = useCStringLen s $ \(sp, sl) -> do
-  result <- c_sendExecutorDraverFrameworkMessage s sp sl
+sendFrameworkMessage (ExecutorDriver d) s = unsafeUseAsCStringLen s $ \(sp, sl) -> do
+  result <- c_sendExecutorDriverFrameworkMessage d sp (fromIntegral sl)
   return $ toStatus result

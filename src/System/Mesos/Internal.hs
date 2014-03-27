@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module System.Mesos.Internal where
 import Data.ByteString (ByteString, packCStringLen)
 import Data.ByteString.Unsafe (unsafeUseAsCStringLen)
@@ -46,6 +47,22 @@ type RawError = SchedulerDriverPtr -> Ptr CChar -> CInt -> IO ()
 data TaskState = Staging | Starting | TaskRunning | Finished | Failed | Killed | Lost
   deriving (Show, Eq)
 
+instance Enum TaskState where
+  fromEnum Staging = 6
+  fromEnum Starting = 0
+  fromEnum TaskRunning = 1
+  fromEnum Finished = 2
+  fromEnum Failed = 3
+  fromEnum Killed = 4
+  fromEnum Lost = 5
+  toEnum 0 = Starting
+  toEnum 1 = TaskRunning
+  toEnum 2 = Finished
+  toEnum 3 = Failed
+  toEnum 4 = Killed
+  toEnum 5 = Lost
+  toEnum 6 = Staging
+
 withMarshal :: CPPValue a => [a] -> (Int -> Ptr (Ptr a) -> IO b) -> IO b
 withMarshal l f = do
   lp <- mapM marshal l
@@ -77,6 +94,9 @@ peekMaybePrim p vsp = do
 
 maybeUnsafeUseAsCStringLen (Just bs) = unsafeUseAsCStringLen bs
 maybeUnsafeUseAsCStringLen Nothing = ($ (nullPtr, 0))
+
+defEq :: Eq a => a -> Maybe a -> Maybe a -> Bool
+defEq d x x' = x == x' || ((x == Nothing || x == Just d) && (x' == Nothing || x' == Just d))
 
 data Executor = Executor
   { executorImpl                :: Ptr Executor
@@ -165,11 +185,15 @@ type ValuePtr = Ptr Value
 type CommandInfoPtr = Ptr CommandInfo
 type ResourceUsagePtr = Ptr ResourceUsage
 type ResourceStatisticsPtr = Ptr ResourceStatistics
+type ParameterPtr = Ptr Parameter
+type ParametersPtr = Ptr Parameters
 
 class CPPValue a where
   marshal :: a -> IO (Ptr a)
   unmarshal :: Ptr a -> IO a
   destroy :: Ptr a -> IO ()
+  equalExceptDefaults :: Eq a => a -> a -> Bool
+  equalExceptDefaults = (==)
 
 type ToID a = Ptr CChar -> CInt -> IO a
 type FromID a = a -> Ptr (Ptr CChar) -> IO CInt
@@ -402,6 +426,8 @@ instance CPPValue FrameworkInfo where
       mh <- peekMaybeBS hp hl
       return $ FrameworkInfo ubs nbs mid mt mc mr mh
   destroy = c_destroyFrameworkInfo
+  equalExceptDefaults (FrameworkInfo u n i ft cp r h) (FrameworkInfo u' n' i' ft' cp' r' h') =
+    u == u' && n == n' && i == i' && defEq 0 ft ft' && defEq False cp cp' && defEq "*" r r' && h == h'
 
 -- *****************************************************************************************************************
 -- 
@@ -475,6 +501,7 @@ instance CPPValue Filters where
     ms <- peekMaybePrim rsp rsc
     return $ Filters $ fmap (\(CDouble d) -> d) ms
   destroy = c_destroyFilters
+  equalExceptDefaults (Filters f) (Filters f') = defEq 5.0 f f'
 
 -- *****************************************************************************************************************
 -- 
@@ -683,26 +710,111 @@ instance CPPValue SlaveInfo where
         else return Nothing
       return $ SlaveInfo h p rs (map fromAttribute as) sid $ fmap fromCBool c
   destroy = c_destroySlaveInfo
+  equalExceptDefaults (SlaveInfo hn p rs as sid cp) (SlaveInfo hn' p' rs' as' sid' cp') =
+    (hn == hn') &&
+    (p == p' || p == Just 5051) &&
+    (and $ zipWith equalExceptDefaults rs rs') &&
+    (and $ zipWith (\(k, v) (k', v') -> k == k' && equalExceptDefaults v v') as as') &&
+    (sid == sid') &&
+    defEq False cp cp'
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
+data ValueType
+  = SCALAR
+  | RANGES
+  | SET
+  | TEXT
+
+instance Enum ValueType where
+  fromEnum SCALAR = 0
+  fromEnum RANGES = 1
+  fromEnum SET = 2
+  fromEnum TEXT = 3
+  toEnum 0 = SCALAR
+  toEnum 1 = RANGES
+  toEnum 2 = SET
+  toEnum 3 = TEXT
+
 data Value
   = Scalar Double
-  | Range (CULong, CULong)
-  | Ranges [(CULong, CULong)]
+  | Ranges [(Word64, Word64)]
   | Set [ByteString]
   | Text ByteString
   deriving (Show, Eq)
---foreign import ccall "ext/types.h toValue" c_toValue
---  ::
---  -> IO
---foreign import ccall "ext/types.h fromValue" c_fromValue
---  ::
---  -> IO
---foreign import ccall "ext/types.h destroyValue" c_destroyValue
---  ::
---  -> IO
 
+foreign import ccall "ext/types.h toValue" c_toValue
+  :: CInt
+  -> CDouble
+  -> Ptr CULong
+  -> Ptr CULong
+  -> CInt
+  -> Ptr (Ptr CChar)
+  -> Ptr CInt
+  -> CInt
+  -> Ptr CChar
+  -> CInt
+  -> IO ValuePtr
+foreign import ccall "ext/types.h fromValue" c_fromValue
+  :: ValuePtr
+  -> Ptr CInt
+  -> Ptr CDouble
+  -> Ptr (Ptr CULong)
+  -> Ptr (Ptr CULong)
+  -> Ptr CInt
+  -> Ptr (Ptr (Ptr CChar))
+  -> Ptr (Ptr CInt)
+  -> Ptr CInt
+  -> Ptr (Ptr CChar)
+  -> Ptr CInt
+  -> IO ()
+foreign import ccall "ext/types.h destroyValue" c_destroyValue
+  :: ValuePtr
+  -> IO ()
+instance CPPValue Value where
+  marshal (Scalar x) = c_toValue (fromIntegral $ fromEnum SCALAR) (CDouble x) nullPtr nullPtr 0 nullPtr nullPtr 0 nullPtr 0
+  marshal (Ranges rs) = do
+    let (rl, rh) = unzip rs
+    withArrayLen (map CULong rl) $ \rLen rlp -> withArray (map CULong rh) $ \rhp -> do
+      c_toValue (fromIntegral $ fromEnum RANGES) 0 rlp rhp (fromIntegral rLen) nullPtr nullPtr 0 nullPtr 0
+  marshal (Set ts) = do
+    (bsps, bsls) <- fmap unzip $ mapM (\s -> unsafeUseAsCStringLen s return) ts
+    withArrayLen bsps $ \tsl bsp -> withArray (map fromIntegral bsls) $ \bsl ->
+      c_toValue (fromIntegral $ fromEnum SET) 0 nullPtr nullPtr 0 bsp bsl (fromIntegral tsl) nullPtr 0
+  marshal (Text t) = unsafeUseAsCStringLen t $ \(tp, tl) ->
+    c_toValue (fromIntegral $ fromEnum TEXT) 0 nullPtr nullPtr 0 nullPtr nullPtr 0 tp (fromIntegral tl)
+  unmarshal vp = alloca $ \typeP ->
+    alloca $ \scalarP ->
+    alloca $ \lowPP ->
+    alloca $ \highPP ->
+    alloca $ \rangeLenP ->
+    alloca $ \setStrPP ->
+    alloca $ \setStrLenP ->
+    alloca $ \setSizeP ->
+    alloca $ \textP ->
+    alloca $ \textLenP -> do
+      c_fromValue vp typeP scalarP lowPP highPP rangeLenP setStrPP setStrLenP setSizeP textP textLenP
+      t <- fmap (toEnum . fromIntegral) $ peek typeP
+      case t of
+        SCALAR -> peek scalarP >>= \(CDouble d) -> return $ Scalar d
+        RANGES -> do
+          rangeLen <- fmap fromIntegral $ peek rangeLenP
+          lowP <- peek lowPP
+          highP <- peek highPP
+          lows <- peekArray rangeLen lowP
+          highs <- peekArray rangeLen highP
+          return $ Ranges $ zip (map fromIntegral lows) (map fromIntegral highs)
+        SET -> do
+          setSize <- fmap fromIntegral $ peek setSizeP
+          setStrPs <- peekArray setSize =<< peek setStrPP
+          setStrLens <- peekArray setSize =<< peek setStrLenP
+          fmap Set $ mapM (\(p, len) -> packCStringLen (p, fromIntegral len)) $ zip setStrPs setStrLens
+        TEXT -> do
+          text <- peek textP
+          textLen <- peek textLenP
+          fmap Text $ packCStringLen (text, fromIntegral textLen)
+
+  destroy = c_destroyValue
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
@@ -757,6 +869,9 @@ instance CPPValue Resource where
           packCStringLen (rp, fromIntegral rl)
       return $ Resource n v r
   destroy = c_destroyResource
+  equalExceptDefaults (Resource n v r) (Resource n' v' r') = (n == n') &&
+    (equalExceptDefaults v v') &&
+    defEq "*" r r'
 
 -- *****************************************************************************************************************
 -- 
@@ -794,6 +909,19 @@ foreign import ccall "ext/types.h fromTaskStatus" c_fromTaskStatus
 foreign import ccall "ext/types.h destroyTaskStatus" c_destroyTaskStatus
   :: TaskStatusPtr
   -> IO ()
+instance CPPValue TaskStatus where
+  marshal s = do
+    tidP <- marshal $ taskStatusTaskID s
+    sidP <- maybe (return nullPtr) marshal $ taskStatusSlaveID s
+    ts <- maybeUnsafeUseAsCStringLen (taskStatusMessage s) $ \(tmp, tml) ->
+      maybeUnsafeUseAsCStringLen (taskStatusData s) $ \(tsd, tsl) -> do
+        alloca $ \tsp -> do
+          tsp' <- maybe (return nullPtr) (\x -> poke tsp (CDouble x) >> return tsp) $ taskStatusTimestamp s
+          c_toTaskStatus tidP (fromIntegral $ fromEnum $ taskStatusState s) tmp (fromIntegral tml) tsd (fromIntegral tsl) sidP tsp'
+    destroy tidP
+    destroy sidP
+    return ts
+  destroy = c_destroyTaskStatus
 
 -- *****************************************************************************************************************
 -- 
@@ -915,6 +1043,8 @@ foreign import ccall "ext/types.h toExecutorInfo" c_toExecutorInfo
   -> CInt
   -> Ptr CChar
   -> CInt
+  -> Ptr CChar
+  -> CInt
   -> IO ExecutorInfoPtr
 foreign import ccall "ext/types.h fromExecutorInfo" c_fromExecutorInfo
   :: ExecutorInfoPtr
@@ -927,13 +1057,51 @@ foreign import ccall "ext/types.h fromExecutorInfo" c_fromExecutorInfo
   -> Ptr CInt
   -> Ptr (Ptr CChar)
   -> Ptr CInt
+  -> Ptr (Ptr CChar)
+  -> Ptr CInt
   -> IO ()
 foreign import ccall "ext/types.h destroyExecutorInfo" c_destroyExecutorInfo
   :: ExecutorInfoPtr
   -> IO ()
 
 instance CPPValue ExecutorInfo where
-  marshal
+  marshal i = do
+    eidP <- marshal $ executorInfoExecutorID i
+    fidP <- marshal $ executorInfoFrameworkID i
+    ciP <- marshal $ executorInfoCommandInfo i
+    rps <- mapM marshal $ executorInfoResources i
+    ip <- maybeUnsafeUseAsCStringLen (executorName i) $ \(np, nl) ->
+      maybeUnsafeUseAsCStringLen (executorSource i) $ \(sp, sl) ->
+      maybeUnsafeUseAsCStringLen (executorData i) $ \(dp, dl) ->
+      withArrayLen rps $ \rLen rs -> do
+        c_toExecutorInfo eidP fidP ciP rs (fromIntegral rLen) np (fromIntegral nl) sp (fromIntegral sl) dp (fromIntegral dl)
+    destroy eidP
+    destroy fidP
+    destroy ciP
+    mapM_ destroy rps
+    return ip
+  unmarshal ip = alloca $ \eidP ->
+    alloca $ \fidP ->
+    alloca $ \ciP ->
+    alloca $ \rpP ->
+    alloca $ \rpL ->
+    alloca $ \enP ->
+    alloca $ \enL ->
+    alloca $ \esP ->
+    alloca $ \esL ->
+    alloca $ \edP ->
+    alloca $ \edL -> do
+      c_fromExecutorInfo ip eidP fidP ciP rpP rpL enP enL esP esL edP edL
+      eid <- unmarshal =<< peek eidP
+      fid <- unmarshal =<< peek fidP
+      ci <- unmarshal =<< peek ciP
+      rl <- peek rpL
+      rps <- peekArray (fromIntegral rl) =<< peek rpP
+      rs <- mapM unmarshal rps
+      en <- peekMaybeBS enP enL
+      es <- peekMaybeBS esP esL
+      ed <- peekMaybeBS edP edL
+      return $ ExecutorInfo eid fid ci rs en es ed
   destroy = c_destroyExecutorInfo
 
 -- *****************************************************************************************************************
@@ -996,6 +1164,9 @@ foreign import ccall "ext/types.h fromResourceStatistics" c_fromResourceStatisti
 foreign import ccall "ext/types.h destroyResourceStatistics" c_destroyResourceStatistics
   :: ResourceStatisticsPtr
   -> IO ()
+
+instance CPPValue ResourceStatistics where
+  destroy = c_destroyResourceStatistics
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
@@ -1030,12 +1201,15 @@ foreign import ccall "ext/types.h fromResourceUsage" c_fromResourceUsage
 foreign import ccall "ext/types.h destroyResourceUsage" c_destroyResourceUsage
   :: ResourceUsagePtr
   -> IO ()
+
+instance CPPValue ResourceUsage where
+  destroy = c_destroyResourceUsage
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
 data Request = Request
   { requestSlaveID :: Maybe SlaveID
-  , requestResources :: [Resource]
+  , reqResources :: [Resource]
   }
   deriving (Show, Eq)
 foreign import ccall "ext/types.h toRequest" c_toRequest
@@ -1055,7 +1229,7 @@ foreign import ccall "ext/types.h destroyRequest" c_destroyRequest
 instance CPPValue Request where
   marshal r = do
     sp <- maybe (return nullPtr) marshal $ requestSlaveID r
-    rps <- mapM marshal $ requestResources r
+    rps <- mapM marshal $ reqResources r
     p <- withArrayLen rps $ \rl rpp -> c_toRequest sp rpp (fromIntegral rl)
     destroy sp
     mapM_ destroy rps
@@ -1114,6 +1288,9 @@ foreign import ccall "ext/types.h fromOffer" c_fromOffer
 foreign import ccall "ext/types.h destroyOffer" c_destroyOffer
   :: OfferPtr
   -> IO ()
+
+instance CPPValue Offer where
+  destroy = c_destroyOffer
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
@@ -1257,6 +1434,7 @@ data EnvironmentVariable = EnvironmentVariable
   , environmentVariableValue :: ByteString
   }
   deriving (Show, Eq)
+
 foreign import ccall "ext/types.h toEnvironmentVariable" c_toEnvironmentVariable
   :: Ptr CChar
   -> CInt
@@ -1295,6 +1473,85 @@ instance CPPValue EnvironmentVariable where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
+
+data Parameter = Parameter ByteString ByteString
+  deriving (Eq, Show)
+
+foreign import ccall "ext/types.h toParameter" c_toParameter
+  :: Ptr CChar
+  -> CInt
+  -> Ptr CChar
+  -> CInt
+  -> IO ParameterPtr
+
+foreign import ccall "ext/types.h fromParameter" c_fromParameter
+  :: ParameterPtr
+  -> Ptr (Ptr CChar)
+  -> Ptr CInt
+  -> Ptr (Ptr CChar)
+  -> Ptr CInt
+  -> IO ()
+
+foreign import ccall "ext/types.h destroyParameter" c_destroyParameter
+  :: ParameterPtr
+  -> IO ()
+
+instance CPPValue Parameter where
+  marshal (Parameter key value) = unsafeUseAsCStringLen key $ \(kp, kl) ->
+    unsafeUseAsCStringLen value $ \(vp, vl) -> c_toParameter kp (fromIntegral kl) vp (fromIntegral vl)
+  unmarshal p = alloca $ \kpp -> alloca $ \klp -> alloca $ \vpp -> alloca $ \vlp -> do
+    c_fromParameter p kpp klp vpp vlp
+    kp <- peek kpp
+    kl <- peek klp
+    vp <- peek vpp
+    vl <- peek vlp
+    k <- packCStringLen (kp, fromIntegral kl)
+    v <- packCStringLen (vp, fromIntegral vl)
+    return $ Parameter k v
+  destroy = c_destroyParameter
+
+-- *****************************************************************************************************************
+-- 
+-- *****************************************************************************************************************
+
+data Parameters = Parameters [Parameter]
+  deriving (Eq, Show)
+
+foreign import ccall "ext/types.h toParameters" c_toParameters
+  :: Ptr ParameterPtr
+  -> CInt
+  -> IO ParametersPtr
+
+foreign import ccall "ext/types.h fromParameters" c_fromParameters
+  :: ParametersPtr
+  -> Ptr (Ptr ParameterPtr)
+  -> Ptr CInt
+  -> IO ()
+
+foreign import ccall "ext/types.h destroyParameters" c_destroyParameters
+  :: ParametersPtr
+  -> IO ()
+
+instance CPPValue Parameters where
+  marshal (Parameters ps) = do
+    pps <- mapM marshal ps
+    p <- withArrayLen pps $ \pl pp -> c_toParameters pp (fromIntegral pl)
+    mapM_ destroy pps
+    return p
+
+  unmarshal p = do
+    alloca $ \ppp -> alloca $ \plp -> do
+      c_fromParameters p ppp plp
+      pp <- peek ppp
+      pl <- peek plp
+      ps <- peekArray (fromIntegral pl) pp
+      fmap Parameters $ mapM unmarshal ps
+
+  destroy = c_destroyParameters
+
+-- *****************************************************************************************************************
+-- 
+-- *****************************************************************************************************************
 foreign import ccall "wrapper" wrapExecutorRegistered
   :: RawExecutorRegistered
   -> IO (FunPtr RawExecutorRegistered)
@@ -1329,9 +1586,9 @@ foreign import ccall "createExecutor" c_createExecutor
   -> FunPtr RawExecutorFrameworkMessage
   -> FunPtr RawExecutorShutdown
   -> FunPtr RawExecutorError
-  -> IO (Ptr ExecutorPtr)
+  -> IO ExecutorPtr
 foreign import ccall "destroyExecutor" c_destroyExecutor
-  :: Ptr ExecutorPtr
+  :: ExecutorPtr
   -> IO ()
 foreign import ccall "ext/executor.h createExecutorDriver" c_createExecutorDriver
   :: ExecutorPtr

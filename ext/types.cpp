@@ -327,63 +327,49 @@ SlaveInfoPtr toSlaveInfo(char* hostname,
 void fromSlaveInfo(SlaveInfoPtr slaveInfo,
 	char** hostname,
 	int* hostnameLen,
+	bool* portSet,
 	unsigned int* port,
 	ResourcePtr** resources,
 	int* resourcesLen,
 	AttributePtr** attributes,
 	int* attributeLen,
 	SlaveIDPtr* slaveID,
-	bool** checkpoint)
+	bool* checkpointSet,
+	bool* checkpoint)
 {
+	*portSet = false;
+	*checkpointSet = false;
+
 	std::string h = slaveInfo->hostname();
 	*hostname = (char*) h.data();
 	*hostnameLen = h.size();
 
 	if (slaveInfo->has_port())
+	{
 		*port = slaveInfo->port();
+		*portSet = true;
+	}
 
 	*resourcesLen = slaveInfo->resources_size();
-	int len = *resourcesLen;
-	for (int i = 0; i < len; ++i)
+	*resources = slaveInfo->mutable_resources()->mutable_data();
+
+	*attributeLen = slaveInfo->attributes_size();
+	*attributes = slaveInfo->mutable_attributes()->mutable_data();
+
+	if (slaveInfo->has_id())
+		*slaveID = slaveInfo->mutable_id();
+
+	if (slaveInfo->has_checkpoint())
 	{
-		/* code */
-	}
+		*checkpoint = slaveInfo->checkpoint();
+		*checkpointSet = true;
+	}	
 }
 
 void destroySlaveInfo(SlaveInfoPtr slaveInfo)
 {
 	delete slaveInfo;
 }
-
-
-RequestPtr toRequest(SlaveIDPtr slaveID,
-	ResourcePtr* resources,
-	int resourcesLen)
-{
-	RequestPtr request = new Request();
-	*request->mutable_slave_id() = *slaveID;
-	if (resourcesLen > 0)
-	{
-		::google::protobuf::RepeatedPtrField<Resource>* rs = request->mutable_resources();
-		for (int i = 0; i < resourcesLen; ++i)
-			*rs->Add() = *resources[i];
-	}
-
-	return request;
-}
-
-void fromRequest(RequestPtr request,
-	ResourcePtr** resources,
-	int* resourceLen)
-{
-
-}
-
-void destroyRequest(RequestPtr request)
-{
-	delete request;
-}
-
 
 TaskInfoPtr toTaskInfo(char* infoName,
 	int infoNameLen,
@@ -417,12 +403,31 @@ void fromTaskInfo(TaskInfoPtr taskInfo,
 	SlaveIDPtr* slaveID,
 	ResourcePtr** resources,
 	int* resourcesLen,
-	ExecutorInfoPtr** executorInfo,
-	CommandInfoPtr** commandInfo,
-	char* data,
+	ExecutorInfoPtr* executorInfo,
+	CommandInfoPtr* commandInfo,
+	char** data,
 	int* dataLen)
 {
+	std::string in = taskInfo->name();
+	*infoName = (char*) in.data();
+	*infoNameLen = in.size();
+	*taskID = taskInfo->mutable_task_id();
+	*slaveID = taskInfo->mutable_slave_id();
+	*resources = taskInfo->mutable_resources()->mutable_data();
+	*resourcesLen = taskInfo->resources_size();
 
+	if (taskInfo->has_executor())
+		*executorInfo = taskInfo->mutable_executor();
+
+	if (taskInfo->has_command())
+		*commandInfo = taskInfo->mutable_command();	
+
+	if (taskInfo->has_data())
+	{
+		std::string d = taskInfo->data();
+		*data = (char*) d.data();
+		*dataLen = d.size();
+	}
 }
 
 void destroyTaskInfo(TaskInfoPtr taskInfo)
@@ -455,17 +460,37 @@ TaskStatusPtr toTaskStatus(TaskIDPtr taskID,
 	return status;
 }
 
-void fromTaskStatus(TaskStatusPtr,
+void fromTaskStatus(TaskStatusPtr status,
 	TaskIDPtr* taskID,
 	int* state,
 	char** message,
 	int* messageLen,
 	char** data,
 	int* dataLen,
-	SlaveIDPtr** slaveID,
+	SlaveIDPtr* slaveID,
 	double* timestamp)
 {
+	*taskID	= status->mutable_task_id();
+	*state = status->state();
+	if (status->has_message())
+	{
+		std::string m = status->message();
+		*message = (char*) m.data();
+		*messageLen = m.size();
+	}
 
+	if (status->has_data())
+	{
+		std::string d = status->data();
+		*data = (char*) d.data();
+		*dataLen = d.size();
+	}
+
+	if (status->has_slave_id())
+		*slaveID = status->mutable_slave_id();
+
+	if (status->has_timestamp())
+		*timestamp = status->timestamp();
 }
 
 void destroyTaskStatus(TaskStatusPtr taskStatus)
@@ -539,4 +564,647 @@ void fromCredential(
 void destroyCredential(CredentialPtr credential)
 {
 	delete credential;
+}
+
+// **********************************************************************
+ResourcePtr toResource(char* name,
+	int nameLen,
+	ValuePtr value,
+	char* role,
+	int roleLen)
+{
+	ResourcePtr resource = new Resource();
+	resource->set_name(name, nameLen);
+	if (value->has_scalar())
+		*(resource->mutable_scalar()) = *value->mutable_scalar();
+
+	if (value->has_ranges())
+		*(resource->mutable_ranges()) = *value->mutable_ranges();
+
+	if (value->has_set())
+		*(resource->mutable_set()) = *value->mutable_set();
+
+	if (role != NULL)
+		resource->set_role(role, roleLen);
+
+	return resource;
+}
+
+void fromResource(ResourcePtr resource,
+	char** name,
+	int* nameLen,
+	ValuePtr* value,
+	char** role,
+	int* roleLen)
+{
+	std::string n = resource->name();
+	*name = (char*) n.data();
+	*nameLen = n.size();
+
+	Value* v = new Value();
+	if (resource->has_scalar())
+	{
+		v->set_type(Value_Type_SCALAR);
+		*v->mutable_scalar() = resource->scalar();
+	}
+	if (resource->has_ranges())
+	{
+		v->set_type(Value_Type_RANGES);
+		*v->mutable_ranges() = resource->ranges();
+	}
+	if (resource->has_set())
+	{
+		v->set_type(Value_Type_SET);
+		*v->mutable_set() = resource->set();
+	}
+	*value = v;
+
+	if (resource->has_role())
+	{
+		std::string r = resource->role();
+		*role = (char*) r.data();
+		*roleLen = r.size();
+	}
+}
+
+void destroyResource(ResourcePtr resource)
+{
+	delete resource;
+}
+
+// **********************************************************************
+ExecutorInfoPtr toExecutorInfo(ExecutorIDPtr executorID,
+	FrameworkIDPtr frameworkID,
+	CommandInfoPtr commandInfo,
+	ResourcePtr* resources,
+	int resourceLen,
+	char* name,
+	int nameLen,
+	char* source,
+	int sourceLen,
+	char* data,
+	int dataLen)
+{
+	ExecutorInfoPtr info = new ExecutorInfo();
+	*info->mutable_executor_id() = *executorID;
+	*info->mutable_framework_id() = *frameworkID;
+	*info->mutable_command() = *commandInfo;
+	::google::protobuf::RepeatedPtrField<Resource>* rs = info->mutable_resources();
+	for (int i = 0; i < resourceLen; ++i)
+		*rs->Add() = *resources[i];
+	if (name != NULL)
+		info->set_name(name, nameLen);
+	if (source != NULL)
+		info->set_source(source, sourceLen);
+	if (data != NULL)
+		info->set_data(data, dataLen);
+
+	return info;
+}
+
+void fromExecutorInfo(ExecutorInfoPtr info,
+	ExecutorIDPtr* executorID,
+	FrameworkIDPtr* frameworkID,
+	CommandInfoPtr* commandInfo,
+	ResourcePtr** resources,
+	int* resourcesLen,
+	char** name,
+	int* nameLen,
+	char** source,
+	int* sourceLen,
+	char** data,
+	int* dataLen)
+{
+	*executorID = info->mutable_executor_id();
+	*frameworkID = info->mutable_framework_id();
+	*commandInfo = info->mutable_command();
+	*resources = info->mutable_resources()->mutable_data();
+	if (info->has_name())
+	{
+		std::string n = info->name();
+		*name = (char*) n.data();
+		*nameLen = n.size();
+	}
+	if (info->has_source())
+	{
+		std::string s = info->source();
+		*source = (char*) s.data();
+		*sourceLen = s.size();
+	}
+	if (info->has_data())
+	{
+		std::string d = info->data();
+		*data = (char*) d.data();
+		*dataLen = d.size();
+	}
+}
+
+void destroyExecutorInfo(ExecutorInfoPtr info)
+{
+	delete info;
+}
+// **********************************************************************
+EnvironmentVariablePtr toEnvironmentVariable(char* key,
+	int keyLen,
+	char* value,
+	int valueLen)
+{
+	EnvironmentVariablePtr var = new Environment_Variable();
+	var->set_name(key, keyLen);
+	var->set_value(value, valueLen);
+	return var;
+}
+
+void fromEnvironmentVariable(EnvironmentVariablePtr env,
+	char** key,
+	int* keyLen,
+	char** value,
+	int* valueLen)
+{
+	std::string k = env->name();
+	std::string v = env->value();
+	*key = (char*) k.data();
+	*keyLen = k.size();
+	*value = (char*) v.data();
+	*valueLen = v.size();
+};
+
+void destroyEnvironmentVariable(EnvironmentVariablePtr env)
+{
+	delete env;
+}
+// **********************************************************************
+EnvironmentPtr toEnvironment(EnvironmentVariablePtr* envVars,
+	int envLen)
+{
+	EnvironmentPtr env = new Environment();
+	if (envVars != NULL)
+	{
+		::google::protobuf::RepeatedPtrField<Environment_Variable>* vs = env->mutable_variables();
+		for (int i = 0; i < envLen; ++i)
+			*vs->Add() = *envVars[i];
+	}
+
+	return env;
+}
+
+void fromEnvironment(EnvironmentPtr env,
+	EnvironmentVariablePtr** vars,
+	int* varLen)
+{
+	*vars = env->mutable_variables()->mutable_data();
+	*varLen = env->variables_size();
+}
+
+void destroyEnvironment(EnvironmentPtr env)
+{
+	delete env;
+}
+// **********************************************************************
+AttributePtr toAttribute(char* name,
+	int nameLen,
+	ValuePtr value)
+{
+	AttributePtr attribute = new Attribute();
+	attribute->set_name(name, nameLen);
+	attribute->set_type(value->type());
+	if (value->has_scalar())
+		*attribute->mutable_scalar() = *value->mutable_scalar();
+	if (value->has_ranges())
+		*attribute->mutable_ranges() = *value->mutable_ranges();
+	if (value->has_set())
+		*attribute->mutable_set() = *value->mutable_set();
+	if (value->has_text())
+		*attribute->mutable_text() = *value->mutable_text();
+	return attribute;
+}
+
+void fromAttribute(AttributePtr attribute,
+	char** name,
+	int* nameLen,
+	ValuePtr* vp)
+{
+	std::string n = attribute->name();
+	*name = (char*) n.data();
+	*nameLen = n.size();
+
+	ValuePtr value = new Value();
+	value->set_type(attribute->type());
+	if (attribute->has_scalar())
+		*value->mutable_scalar() = *attribute->mutable_scalar();
+	if (attribute->has_ranges())
+		*value->mutable_ranges() = *attribute->mutable_ranges();
+	if (attribute->has_set())
+		*value->mutable_set() = *attribute->mutable_set();
+	if (attribute->has_text())
+		*value->mutable_text() = *attribute->mutable_text();
+
+	*vp = value;
+}
+
+void destroyAttribute(AttributePtr attribute)
+{
+	delete attribute;
+}
+
+// **********************************************************************
+
+RequestPtr toRequest(SlaveIDPtr slaveID,
+	ResourcePtr* resources,
+	int resourceLen)
+{
+	RequestPtr request = new Request();
+	if (slaveID != NULL)
+		*request->mutable_slave_id() = *slaveID;
+
+	::google::protobuf::RepeatedPtrField<Resource>* rs = request->mutable_resources();
+	for (int i = 0; i < resourceLen; ++i)
+		*rs->Add() = *resources[i];
+	return request;
+}
+
+void fromRequest(RequestPtr request,
+	SlaveIDPtr* slaveID,
+	ResourcePtr** resources,
+	int* resourceLen)
+{
+	if (request->has_slave_id())
+		*slaveID = request->mutable_slave_id();
+
+	*resources = request->mutable_resources()->mutable_data();
+	*resourceLen = request->resources_size();
+}
+
+void destroyRequest(RequestPtr request)
+{
+	delete request;
+}
+// **********************************************************************
+
+ValuePtr toValue(int type,
+	double scalar,
+	unsigned long* lows,
+	unsigned long* highs,
+	int rangeLen,
+	char** strings,
+	int* stringLens,
+	int stringsLen,
+	char* text,
+	int textLen)
+{
+	ValuePtr value = new Value();
+	value->set_type((Value_Type) type);
+	if (type == Value_Type_SCALAR)
+	{
+		Value_Scalar s;
+		s.set_value(scalar);
+		*value->mutable_scalar() = s;
+	}
+	else if (type == Value_Type_RANGES)
+	{
+		Value_Ranges rs;
+		Value_Range r;
+		for (int i = 0; i < rangeLen; ++i)
+		{
+			r.set_begin(lows[i]);
+			r.set_end(highs[i]);
+			*rs.add_range() = r;
+		}
+
+		*value->mutable_ranges() = rs;
+	}
+	else if (type == Value_Type_SET)
+	{
+		Value_Set s;
+		for (int i = 0; i < stringsLen; ++i)
+			s.add_item(strings[i], stringLens[i]);
+
+		*value->mutable_set() = s;
+	}
+	else if (type == Value_Type_TEXT)
+	{
+		Value_Text t;
+		t.set_value(text, textLen);
+		*value->mutable_text() = t;
+	}
+
+	return value;
+}
+
+void fromValue(ValuePtr value,
+	int* type,
+	double* scalar,
+	unsigned long** lows,
+	unsigned long** highs,
+	int* rangeLen,
+	char*** strings,
+	int** stringLens,
+	int* stringsLen,
+	char** text,
+	int* textLen)
+{
+	Value_Type t = value->type();
+	*type = (int) t;
+	if (t == Value_Type_SCALAR)
+	{
+		*scalar = value->mutable_scalar()->value();
+	}
+	else if (t == Value_Type_RANGES)
+	{
+		*rangeLen = value->mutable_ranges()->range_size();
+		// don't know
+	}
+	else if (t == Value_Type_SET)
+	{
+		// don't know
+	}
+	else if (t == Value_Type_TEXT)
+	{
+		std::string txt = value->mutable_text()->value();
+		*text = (char*) txt.data();
+		*textLen = txt.size();
+	}
+}
+
+void destroyValue(ValuePtr value)
+{
+	delete value;
+}
+
+// **********************************************************************
+
+CommandInfoPtr toCommandInfo(CommandInfo_URIPtr* uris,
+	int urisLen,
+	EnvironmentPtr environment,
+	char* value,
+	int valueLen)
+{
+	CommandInfoPtr info = new CommandInfo();
+	for (int i = 0; i < urisLen; ++i)
+		*info->add_uris() = *uris[i];
+	*info->mutable_environment() = *environment;
+	info->set_value(value, valueLen);
+	return info;
+}
+
+void fromCommandInfo(CommandInfoPtr info,
+	CommandInfo_URIPtr** uris,
+	int* urisLen,
+	EnvironmentPtr* environment,
+	char** value,
+	int* valueLen)
+{
+	*uris = info->mutable_uris()->mutable_data();
+	*urisLen = info->uris_size();
+	*environment = info->mutable_environment();
+	std::string v = info->value();
+	*value = (char*) v.data();
+	*valueLen = v.size();
+}
+
+void destroyCommandInfo(CommandInfoPtr info)
+{
+	delete info;
+}
+
+// **********************************************************************
+ResourceUsagePtr toResourceUsage(SlaveIDPtr slaveID,
+	FrameworkIDPtr frameworkID,
+	ExecutorIDPtr executorID,
+	char* executorName,
+	int nameLen,
+	TaskIDPtr taskID,
+	ResourceStatisticsPtr statistics)
+{
+	ResourceUsagePtr usage = new ResourceUsage();
+	*usage->mutable_slave_id() = *slaveID;
+	*usage->mutable_framework_id() = *frameworkID;
+	if (executorID != NULL)
+		*usage->mutable_executor_id() = *executorID;
+	if (executorName != NULL)
+		usage->set_executor_name(executorName, nameLen);
+	if (taskID != NULL)
+		*usage->mutable_task_id() = *taskID;
+	if (statistics != NULL)
+		*usage->mutable_statistics() = *statistics;
+
+	return usage;
+}
+
+void fromResourceUsage(ResourceUsagePtr usage,
+	SlaveIDPtr* slaveID,
+	FrameworkIDPtr* frameworkID,
+	ExecutorIDPtr* executorID,
+	char** executorName,
+	int* nameLen,
+	TaskIDPtr* taskID,
+	ResourceStatisticsPtr* statistics)
+{
+	*slaveID = usage->mutable_slave_id();
+	*frameworkID = usage->mutable_framework_id();
+	if (usage->has_executor_id())
+		*executorID = usage->mutable_executor_id();
+	if (usage->has_executor_name())
+	{
+		std::string n = usage->executor_name();
+		*executorName = (char*) n.data();
+		*nameLen = n.size();
+	}
+	if (usage->has_task_id())
+		*taskID = usage->mutable_task_id();
+	if (usage->has_statistics())
+		*statistics = usage->mutable_statistics();
+}
+
+void destroyResourceUsage(ResourceUsagePtr usage)
+{
+	delete usage;
+}
+// **********************************************************************
+OfferPtr toOffer(OfferIDPtr offerID,
+	FrameworkIDPtr frameworkID,
+	SlaveIDPtr slaveID,
+	char* hostname,
+	int hostnameLen,
+	ResourcePtr* resources,
+	int resourcesLen,
+	AttributePtr* attributes,
+	int attributesLen,
+	ExecutorIDPtr* executorIDs,
+	int idsLen)
+{
+	OfferPtr offer = new Offer();
+	*offer->mutable_id() = *offerID;
+	*offer->mutable_framework_id() = *frameworkID;
+	*offer->mutable_slave_id() = *slaveID;
+	offer->set_hostname(hostname, hostnameLen);
+	for (int i = 0; i < resourcesLen; ++i)
+		*offer->add_resources() = *resources[i];
+	for (int i = 0; i < attributesLen; ++i)
+		*offer->add_attributes() = *attributes[i];
+	for (int i = 0; i < idsLen; ++i)
+		*offer->add_executor_ids() = *executorIDs[i];
+
+	return offer;
+}
+
+void fromOffer(OfferPtr offer,
+	OfferIDPtr* offerID,
+	FrameworkIDPtr* frameworkID,
+	SlaveIDPtr* slaveID,
+	char** hostname,
+	int* hostnameLen,
+	ResourcePtr** resources,
+	int* resourcesLen,
+	AttributePtr** attributes,
+	int* attributesLen,
+	ExecutorIDPtr** executorIDs,
+	int* idsLen)
+{
+	*offerID = offer->mutable_id();
+	*frameworkID = offer->mutable_framework_id();
+	*slaveID = offer->mutable_slave_id();
+	std::string hn = offer->hostname();
+	*hostname = (char*) hn.data();
+	*hostnameLen = hn.size();
+	*resources = offer->mutable_resources()->mutable_data();
+	*resourcesLen = offer->resources_size();
+	*attributes = offer->mutable_attributes()->mutable_data();
+	*attributesLen = offer->attributes_size();
+	*executorIDs = offer->mutable_executor_ids()->mutable_data();
+	*idsLen = offer->executor_ids_size();
+}
+
+void destroyOffer(OfferPtr offer)
+{
+	delete offer;
+}
+
+// **********************************************************************
+
+ResourceStatisticsPtr toResourceStatistics(double timestamp,
+	double* cpusUserTimeSecs,
+	double* cpusSystemTimeSecs,
+	double cpusLimit,
+	unsigned int* cpusPeriods,
+	unsigned int* cpusThrottled,
+	double* cpusThrottledTimeSecs,
+	unsigned long* memoryResidentSetSize,
+	unsigned long* memoryLimitBytes,
+	unsigned long* memoryFileBytes,
+	unsigned long* memoryAnonymousBytes,
+	unsigned long* memoryMappedFileBytes)
+{
+	ResourceStatisticsPtr stats = new ResourceStatistics();
+	stats->set_timestamp(timestamp);
+	if (cpusUserTimeSecs != NULL)
+		stats->set_cpus_user_time_secs(*cpusUserTimeSecs);
+	if (cpusSystemTimeSecs != NULL)
+		stats->set_cpus_system_time_secs(*cpusSystemTimeSecs);
+	stats->set_cpus_limit(cpusLimit);
+	if (cpusPeriods != NULL)
+		stats->set_cpus_nr_periods(*cpusPeriods);
+	if (cpusThrottled != NULL)
+		stats->set_cpus_nr_throttled(*cpusThrottled);
+	if (cpusThrottledTimeSecs != NULL)
+		stats->set_cpus_throttled_time_secs(*cpusThrottledTimeSecs);
+	if (memoryResidentSetSize != NULL)
+		stats->set_mem_rss_bytes(*memoryResidentSetSize);
+	if (memoryLimitBytes != NULL)
+		stats->set_mem_limit_bytes(*memoryLimitBytes);
+	if (memoryFileBytes != NULL)
+		stats->set_mem_file_bytes(*memoryFileBytes);
+	if (memoryAnonymousBytes != NULL)
+		stats->set_mem_anon_bytes(*memoryAnonymousBytes);
+	if (memoryMappedFileBytes != NULL)
+		stats->set_mem_mapped_file_bytes(*memoryMappedFileBytes);
+	return stats;
+}
+
+void fromResourceStatistics(ResourceStatisticsPtr stats,
+double timestamp,
+double* cpusUserTimeSecs,
+bool* cpusUserTimeSecsSet,
+double* cpusSystemTimeSecs,
+bool* cpusSystemTimeSecsSet,
+double cpusLimit,
+unsigned int* cpusPeriods,
+bool* cpusPeriodsSet,
+unsigned int* cpusThrottled,
+bool* cpusThrottledSet,
+double* cpusThrottledTimeSecs,
+bool* cpusThrottledTimeSecsSet,
+unsigned long* memoryResidentSetSize,
+bool* memoryResidentSetSizeSet,
+unsigned long* memoryLimitBytes,
+bool* memoryLimitBytesSet,
+unsigned long* memoryFileBytes,
+bool* memoryFileBytesSet,
+unsigned long* memoryAnonymousBytes,
+bool* memoryAnonymousBytesSet,
+unsigned long* memoryMappedFileBytes,
+bool* memoryMappedFileBytesSet)
+{
+	
+}
+
+void destroyResourceStatistics(ResourceStatisticsPtr statistics)
+{
+	delete statistics;
+}
+
+// **********************************************************************
+
+ParametersPtr toParameters(ParameterPtr* parameters,
+	int pLen)
+{
+	ParametersPtr params = new Parameters();
+	for (int i = 0; i < pLen; ++i)
+		*params->add_parameter() = *parameters[i];
+	return params;
+}
+
+void fromParameters(ParametersPtr params,
+	ParameterPtr** parameters,
+	int* pLen)
+{
+	*parameters = params->mutable_parameter()->mutable_data();
+	*pLen = params->parameter_size();
+}
+
+void destroyParameters(ParametersPtr params)
+{
+	delete params;
+}
+
+// **********************************************************************
+
+ParameterPtr toParameter(char* keyP,
+	int keyLen,
+	char* valP,
+	int valLen)
+{
+	ParameterPtr parameter = new Parameter();
+	parameter->set_key(keyP, keyLen);
+	parameter->set_value(valP, valLen);
+	return parameter;
+}
+
+void fromParameter(ParameterPtr parameter,
+	char** keyP,
+	int* keyLenP,
+	char** valueP,
+	int* valueLenP)
+{
+	std::string k = parameter->key();
+	std::string v = parameter->value();
+	*keyP = (char*) k.data();
+	*keyLenP = k.size();
+	*valueP = (char*) v.data();
+	*valueLenP = k.size();
+}
+
+void destroyParameter(ParameterPtr parameter)
+{
+	delete parameter;
 }
