@@ -14,7 +14,7 @@ typedef mesos::MasterInfo *MasterInfoPtr;
 typedef mesos::SlaveInfo *SlaveInfoPtr;
 typedef mesos::Value *ValuePtr;
 typedef mesos::Value_Scalar *Value_ScalarPtr;
-typedef mesos::Value_Range *Value_RangePtr;
+typedef mesos::Value_Range *ValueRangePtr;
 typedef mesos::Value_Ranges *Value_RangesPtr;
 typedef mesos::Value_Set *Value_SetPtr;
 typedef mesos::Value_Text *Value_TextPtr;
@@ -33,6 +33,7 @@ typedef mesos::Parameter *ParameterPtr;
 typedef mesos::Parameters *ParametersPtr;
 typedef mesos::Credential *CredentialPtr;
 typedef mesos::CommandInfo_URI *CommandURIPtr;
+typedef std::string *StdStringPtr;
 
 extern "C" {
 	// **********************************************************************
@@ -214,6 +215,7 @@ extern "C" {
 		char** data,
 		int* dataLen,
 		SlaveIDPtr* slaveID,
+		bool* timestampSet,
 		double* timestamp);
 	extern void destroyTaskStatus(TaskStatusPtr taskStatus);
 	
@@ -312,11 +314,9 @@ extern "C" {
 	// **********************************************************************
 	extern ValuePtr toValue(int type,
 		double scalar,
-		unsigned long* lows,
-		unsigned long* highs,
+		ValueRangePtr* lows,
 		int rangeLen,
-		char** strings,
-		int* stringLens,
+		StdStringPtr* strings,
 		int stringsLen,
 		char* text,
 		int textLen);
@@ -324,11 +324,9 @@ extern "C" {
 	extern void fromValue(ValuePtr value,
 		int* type,
 		double* scalar,
-		unsigned long** lows,
-		unsigned long** highs,
+		ValueRangePtr** ranges,
 		int* rangeLen,
-		char*** strings,
-		int** stringLens,
+		StdStringPtr** strings,
 		int* stringsLen,
 		char** text,
 		int* textLen);
@@ -410,12 +408,12 @@ extern "C" {
 		unsigned long* memoryAnonymousBytes,
 		unsigned long* memoryMappedFileBytes);
 	extern void fromResourceStatistics(ResourceStatisticsPtr stats,
-		double timestamp,
+		double* timestamp,
 		double* cpusUserTimeSecs,
 		bool* cpusUserTimeSecsSet,
 		double* cpusSystemTimeSecs,
 		bool* cpusSystemTimeSecsSet,
-		double cpusLimit,
+		double* cpusLimit,
 		unsigned int* cpusPeriods,
 		bool* cpusPeriodsSet,
 		unsigned int* cpusThrottled,
@@ -451,5 +449,21 @@ extern "C" {
 		ParameterPtr** parameters,
 		int* pLen);
 	extern void destroyParameters(ParametersPtr params);
+	// **********************************************************************
+	extern StdStringPtr toStdString(char* str,
+		int strLen);
+
+	extern void fromStdString(StdStringPtr sp,
+		char** str,
+		int* strLen);
+
+	extern void destroyStdString(StdStringPtr sp);
+	// **********************************************************************
+	extern ValueRangePtr toRange(unsigned long low,
+		unsigned long high);
+	extern void fromRange(ValueRangePtr range,
+		unsigned long* lowP,
+		unsigned long* highP);
+	extern void destroyRange(ValueRangePtr range);
 };
 

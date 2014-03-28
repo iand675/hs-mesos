@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module System.Mesos.Internal where
+import Control.Applicative
 import Data.ByteString (ByteString, packCStringLen)
 import Data.ByteString.Unsafe (unsafeUseAsCStringLen)
 import Data.Word
@@ -42,7 +43,6 @@ type RawFrameworkMessage = SchedulerDriverPtr -> ExecutorIDPtr -> SlaveIDPtr -> 
 type RawSlaveLost = SchedulerDriverPtr -> SlaveIDPtr -> IO ()
 type RawExecutorLost = SchedulerDriverPtr -> ExecutorIDPtr -> SlaveIDPtr -> CInt -> IO ()
 type RawError = SchedulerDriverPtr -> Ptr CChar -> CInt -> IO ()
-
 
 data TaskState = Staging | Starting | TaskRunning | Finished | Failed | Killed | Lost
   deriving (Show, Eq)
@@ -309,6 +309,30 @@ instance CPPValue ContainerID where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
+
+newtype StdString = StdString ByteString
+type StdStringPtr = Ptr StdString
+foreign import ccall "ext/types.h toStdString" c_toStdString
+  :: Ptr CChar
+  -> CInt
+  -> IO StdStringPtr
+foreign import ccall "ext/types.h fromStdString" c_fromStdString
+  :: StdStringPtr
+  -> Ptr (Ptr CChar)
+  -> Ptr CInt
+  -> IO ()
+foreign import ccall "ext/types.h destroyStdString" c_destroyStdString
+  :: StdStringPtr
+  -> IO ()
+instance CPPValue StdString where
+  marshal (StdString bs) = unsafeUseAsCStringLen bs $ \(sp, sl) -> c_toStdString sp (fromIntegral sl)
+  unmarshal p = alloca $ \spp -> alloca $ \slp -> do
+    c_fromStdString p spp slp
+    sp <- peek spp
+    sl <- peek slp
+    StdString <$> packCStringLen (sp, fromIntegral sl)
+  destroy = c_destroyStdString
+
 data FrameworkInfo = FrameworkInfo
   { frameworkUser :: ByteString
   , frameworkName :: ByteString
@@ -602,22 +626,16 @@ instance CPPValue MasterInfo where
     alloca $ \pidlP ->
     alloca $ \hnpP ->
     alloca $ \hnlP -> do
+      poke pidpP nullPtr
+      poke hnpP nullPtr
       c_fromMasterInfo i idpP idlP ipP portP pidpP pidlP hnpP hnlP
       idp <- peek idpP
       idl <- peek idlP
       mID <- packCStringLen (idp, fromIntegral idl)
       (CUInt ip) <- peek ipP
       (CUInt port) <- peek portP
-      pidp <- peek pidpP
-      pidl <- peek pidlP
-      pid <- if pidp /= nullPtr
-        then fmap Just $ packCStringLen (pidp, fromIntegral pidl)
-        else return Nothing
-      hnp <- peek hnpP
-      hnl <- peek hnlP
-      hn <- if hnp /= nullPtr
-        then fmap Just $ packCStringLen (hnp, fromIntegral hnl)
-        else return Nothing
+      pid <- peekMaybeBS pidpP pidlP
+      hn <- peekMaybeBS hnpP hnlP
       return $ MasterInfo mID ip port pid hn
   destroy = c_destroyMasterInfo
 -- *****************************************************************************************************************
@@ -670,7 +688,7 @@ instance CPPValue SlaveInfo where
         maybe (return ()) (poke pp . CUInt) $ slaveInfoPort i
         maybe (return ()) (poke cp . toCBool) $ slaveInfoCheckpoint i
         sidp <- maybe (return nullPtr) marshal $ slaveInfoSlaveID i
-        p <- c_toSlaveInfo hp (fromIntegral hl) (maybe nullPtr (const pp) $ slaveInfoPort i) rp (fromIntegral rl) ap (fromIntegral al) sidp cp
+        p <- c_toSlaveInfo hp (fromIntegral hl) (maybe nullPtr (const pp) $ slaveInfoPort i) rp (fromIntegral rl) ap (fromIntegral al) sidp (maybe nullPtr (const cp) $ slaveInfoCheckpoint i)
         destroy sidp
         mapM_ destroy rs
         mapM_ destroy as
@@ -686,14 +704,12 @@ instance CPPValue SlaveInfo where
     alloca $ \ipp ->
     alloca $ \cps ->
     alloca $ \cp -> do
+      poke ipp nullPtr
       c_fromSlaveInfo i hpp hlp pps pp rpp rlp app alp ipp cps cp
       hp <- peek hpp
       hl <- peek hlp
       h <- packCStringLen (hp, fromIntegral hl)
-      portSet <- peek pps
-      p <- if fromCBool portSet
-        then fmap (\(CUInt x) -> Just x) $ peek pp
-        else return Nothing
+      p <- peekMaybePrim pp pps
       rp <- peek rpp
       rl <- peek rlp
       rs <- mapM unmarshal =<< peekArray (fromIntegral rl) rp
@@ -704,11 +720,8 @@ instance CPPValue SlaveInfo where
       sid <- if ip == nullPtr
         then return Nothing
         else fmap Just $ unmarshal ip
-      checkpointSet <- peek cps
-      c <- if fromCBool checkpointSet
-        then fmap Just $ peek cp
-        else return Nothing
-      return $ SlaveInfo h p rs (map fromAttribute as) sid $ fmap fromCBool c
+      c <- peekMaybePrim cp cps
+      return $ SlaveInfo h (fromIntegral <$> p) rs (map fromAttribute as) sid $ fmap fromCBool c
   destroy = c_destroySlaveInfo
   equalExceptDefaults (SlaveInfo hn p rs as sid cp) (SlaveInfo hn' p' rs' as' sid' cp') =
     (hn == hn') &&
@@ -736,6 +749,31 @@ instance Enum ValueType where
   toEnum 2 = SET
   toEnum 3 = TEXT
 
+data ValueRange = ValueRange Word64 Word64
+type ValueRangePtr = Ptr ValueRange
+
+foreign import ccall "ext/types.h toRange" c_toRange
+  :: CULong
+  -> CULong
+  -> IO ValueRangePtr
+
+foreign import ccall "ext/types.h fromRange" c_fromRange
+  :: ValueRangePtr
+  -> Ptr CULong
+  -> Ptr CULong
+  -> IO ()
+foreign import ccall "ext/types.h destroyRange" c_destroyRange
+  :: ValueRangePtr
+  -> IO ()
+instance CPPValue ValueRange where
+  marshal (ValueRange l h) = c_toRange (CULong l) (CULong h)
+  unmarshal p = alloca $ \l -> alloca $ \h -> do
+    c_fromRange p l h
+    (CULong l') <- peek l
+    (CULong r') <- peek h
+    return $ ValueRange l' r'
+  destroy = c_destroyRange
+
 data Value
   = Scalar Double
   | Ranges [(Word64, Word64)]
@@ -746,11 +784,9 @@ data Value
 foreign import ccall "ext/types.h toValue" c_toValue
   :: CInt
   -> CDouble
-  -> Ptr CULong
-  -> Ptr CULong
+  -> Ptr ValueRangePtr
   -> CInt
-  -> Ptr (Ptr CChar)
-  -> Ptr CInt
+  -> Ptr StdStringPtr
   -> CInt
   -> Ptr CChar
   -> CInt
@@ -759,11 +795,9 @@ foreign import ccall "ext/types.h fromValue" c_fromValue
   :: ValuePtr
   -> Ptr CInt
   -> Ptr CDouble
-  -> Ptr (Ptr CULong)
-  -> Ptr (Ptr CULong)
+  -> Ptr (Ptr ValueRangePtr)
   -> Ptr CInt
-  -> Ptr (Ptr (Ptr CChar))
-  -> Ptr (Ptr CInt)
+  -> Ptr (Ptr StdStringPtr)
   -> Ptr CInt
   -> Ptr (Ptr CChar)
   -> Ptr CInt
@@ -772,43 +806,43 @@ foreign import ccall "ext/types.h destroyValue" c_destroyValue
   :: ValuePtr
   -> IO ()
 instance CPPValue Value where
-  marshal (Scalar x) = c_toValue (fromIntegral $ fromEnum SCALAR) (CDouble x) nullPtr nullPtr 0 nullPtr nullPtr 0 nullPtr 0
+  marshal (Scalar x) = c_toValue (fromIntegral $ fromEnum SCALAR) (CDouble x) nullPtr 0 nullPtr 0 nullPtr 0
   marshal (Ranges rs) = do
-    let (rl, rh) = unzip rs
-    withArrayLen (map CULong rl) $ \rLen rlp -> withArray (map CULong rh) $ \rhp -> do
-      c_toValue (fromIntegral $ fromEnum RANGES) 0 rlp rhp (fromIntegral rLen) nullPtr nullPtr 0 nullPtr 0
+    ranges <- mapM (marshal . (uncurry ValueRange)) rs
+    result <- withArrayLen ranges $ \rLen rp -> do
+      c_toValue (fromIntegral $ fromEnum RANGES) 0 rp (fromIntegral rLen) nullPtr 0 nullPtr 0
+    mapM_ destroy ranges
+    return result
   marshal (Set ts) = do
-    (bsps, bsls) <- fmap unzip $ mapM (\s -> unsafeUseAsCStringLen s return) ts
-    withArrayLen bsps $ \tsl bsp -> withArray (map fromIntegral bsls) $ \bsl ->
-      c_toValue (fromIntegral $ fromEnum SET) 0 nullPtr nullPtr 0 bsp bsl (fromIntegral tsl) nullPtr 0
+    sps <- mapM (marshal . StdString) ts
+    result <- withArrayLen sps $ \sl sp -> 
+      c_toValue (fromIntegral $ fromEnum SET) 0 nullPtr 0 sp (fromIntegral sl) nullPtr 0
+    mapM destroy sps
+    return result
   marshal (Text t) = unsafeUseAsCStringLen t $ \(tp, tl) ->
-    c_toValue (fromIntegral $ fromEnum TEXT) 0 nullPtr nullPtr 0 nullPtr nullPtr 0 tp (fromIntegral tl)
+    c_toValue (fromIntegral $ fromEnum TEXT) 0 nullPtr 0 nullPtr 0 tp (fromIntegral tl)
   unmarshal vp = alloca $ \typeP ->
     alloca $ \scalarP ->
-    alloca $ \lowPP ->
-    alloca $ \highPP ->
+    alloca $ \rangePP ->
     alloca $ \rangeLenP ->
     alloca $ \setStrPP ->
-    alloca $ \setStrLenP ->
     alloca $ \setSizeP ->
     alloca $ \textP ->
     alloca $ \textLenP -> do
-      c_fromValue vp typeP scalarP lowPP highPP rangeLenP setStrPP setStrLenP setSizeP textP textLenP
+      c_fromValue vp typeP scalarP rangePP rangeLenP setStrPP setSizeP textP textLenP
       t <- fmap (toEnum . fromIntegral) $ peek typeP
       case t of
         SCALAR -> peek scalarP >>= \(CDouble d) -> return $ Scalar d
         RANGES -> do
           rangeLen <- fmap fromIntegral $ peek rangeLenP
-          lowP <- peek lowPP
-          highP <- peek highPP
-          lows <- peekArray rangeLen lowP
-          highs <- peekArray rangeLen highP
-          return $ Ranges $ zip (map fromIntegral lows) (map fromIntegral highs)
+          rangeP <- peek rangePP
+          rangePs <- peekArray (fromIntegral rangeLen) rangeP
+          rs <- mapM unmarshal rangePs
+          return $ Ranges $ map (\(ValueRange l h) -> (l, h)) rs
         SET -> do
           setSize <- fmap fromIntegral $ peek setSizeP
-          setStrPs <- peekArray setSize =<< peek setStrPP
-          setStrLens <- peekArray setSize =<< peek setStrLenP
-          fmap Set $ mapM (\(p, len) -> packCStringLen (p, fromIntegral len)) $ zip setStrPs setStrLens
+          setStrs <- mapM unmarshal =<< peekArray setSize =<< peek setStrPP
+          return $! Set $ map (\(StdString x) -> x) setStrs
         TEXT -> do
           text <- peek textP
           textLen <- peek textLenP
@@ -870,8 +904,12 @@ instance CPPValue Resource where
       return $ Resource n v r
   destroy = c_destroyResource
   equalExceptDefaults (Resource n v r) (Resource n' v' r') = (n == n') &&
-    (equalExceptDefaults v v') &&
+    textToSet v v' &&
     defEq "*" r r'
+    where
+      textToSet (Text t) (Set s) = [t] == s
+      textToSet (Set s) (Text t) = [t] == s
+      textToSet v v' = equalExceptDefaults v v'
 
 -- *****************************************************************************************************************
 -- 
@@ -897,6 +935,7 @@ foreign import ccall "ext/types.h toTaskStatus" c_toTaskStatus
   -> IO TaskStatusPtr
 foreign import ccall "ext/types.h fromTaskStatus" c_fromTaskStatus
   :: TaskStatusPtr
+  -> Ptr TaskIDPtr
   -> Ptr CInt
   -> Ptr (Ptr CChar)
   -> Ptr CInt
@@ -921,6 +960,29 @@ instance CPPValue TaskStatus where
     destroy tidP
     destroy sidP
     return ts
+  unmarshal s = alloca $ \tidp ->
+    alloca $ \sp ->
+    alloca $ \mpp ->
+    alloca $ \mlp ->
+    alloca $ \dpp ->
+    alloca $ \dlp ->
+    alloca $ \sidp ->
+    alloca $ \tssp ->
+    alloca $ \tsp -> do
+      poke mpp nullPtr
+      poke dpp nullPtr
+      poke sidp nullPtr
+      c_fromTaskStatus s tidp sp mpp mlp dpp dlp sidp tssp tsp
+      tid <- unmarshal =<< peek tidp
+      state <- (toEnum . fromIntegral) <$> peek sp
+      msg <- peekMaybeBS mpp mlp
+      dat <- peekMaybeBS dpp dlp
+      mSidP <- peek sidp
+      sid <- if mSidP == nullPtr
+        then return Nothing
+        else Just <$> unmarshal mSidP
+      ts <- fmap (\(CDouble d) -> d) <$> peekMaybePrim tsp tssp
+      return $ TaskStatus tid state msg dat sid ts
   destroy = c_destroyTaskStatus
 
 -- *****************************************************************************************************************
@@ -1006,6 +1068,7 @@ instance CPPValue CommandInfo where
     alloca $ \epp ->
     alloca $ \vpp ->
     alloca $ \vlp -> do
+      poke epp nullPtr
       c_fromCommandInfo i upp ulp epp vpp vlp
       up <- peek upp
       ul <- peek ulp
@@ -1091,6 +1154,9 @@ instance CPPValue ExecutorInfo where
     alloca $ \esL ->
     alloca $ \edP ->
     alloca $ \edL -> do
+      poke enP nullPtr
+      poke esP nullPtr
+      poke edP nullPtr
       c_fromExecutorInfo ip eidP fidP ciP rpP rpL enP enL esP esL edP edL
       eid <- unmarshal =<< peek eidP
       fid <- unmarshal =<< peek fidP
@@ -1103,6 +1169,8 @@ instance CPPValue ExecutorInfo where
       ed <- peekMaybeBS edP edL
       return $ ExecutorInfo eid fid ci rs en es ed
   destroy = c_destroyExecutorInfo
+  equalExceptDefaults (ExecutorInfo id fid ci rs n s d) (ExecutorInfo id' fid' ci' rs' n' s' d') =
+    id == id' && fid == fid' && equalExceptDefaults ci ci' && and (zipWith equalExceptDefaults rs rs') && n == n' && s == s' && d == d'
 
 -- *****************************************************************************************************************
 -- 
@@ -1139,12 +1207,11 @@ foreign import ccall "ext/types.h toResourceStatistics" c_toResourceStatistics
 foreign import ccall "ext/types.h fromResourceStatistics" c_fromResourceStatistics
   :: ResourceStatisticsPtr
   -> Ptr CDouble
-  -> Ptr CBool
   -> Ptr CDouble
   -> Ptr CBool
   -> Ptr CDouble
-  -> Ptr CDouble
   -> Ptr CBool
+  -> Ptr CDouble
   -> Ptr CUInt
   -> Ptr CBool
   -> Ptr CUInt
@@ -1160,12 +1227,113 @@ foreign import ccall "ext/types.h fromResourceStatistics" c_fromResourceStatisti
   -> Ptr CULong
   -> Ptr CBool
   -> Ptr CULong
+  -> Ptr CBool
   -> IO ()
 foreign import ccall "ext/types.h destroyResourceStatistics" c_destroyResourceStatistics
   :: ResourceStatisticsPtr
   -> IO ()
 
 instance CPPValue ResourceStatistics where
+  marshal s = alloca $ \cpuUTS ->
+    alloca $ \cpuSTS ->
+    alloca $ \cpuPs ->
+    alloca $ \cpuT ->
+    alloca $ \cpuTTS ->
+    alloca $ \memRSS ->
+    alloca $ \memLB ->
+    alloca $ \memFB ->
+    alloca $ \memAB ->
+    alloca $ \memMB -> do
+      cpuUTS' <- maybe (return nullPtr) (\x -> poke cpuUTS (CDouble x) >> return cpuUTS) $ resourceStatisticsCPUsUserTimeSecs s
+      cpuSTS' <- maybe (return nullPtr) (\x -> poke cpuSTS (CDouble x) >> return cpuSTS) $ resourceStatisticsCPUsSystemTimeSecs s
+      cpuPs' <- maybe (return nullPtr) (\x -> poke cpuPs (CUInt x) >> return cpuPs) $ resourceCPUsPeriods s
+      cpuT' <- maybe (return nullPtr) (\x -> poke cpuT (CUInt x) >> return cpuT) $ resourceCPUsThrottled s
+      cpuTTS' <- maybe (return nullPtr) (\x -> poke cpuTTS (CDouble x) >> return cpuTTS) $ resourceCPUsThrottledTimeSecs s
+      memRSS' <- maybe (return nullPtr) (\x -> poke memRSS (CULong x) >> return memRSS) $ resourceMemoryResidentSetSize s
+      memLB' <- maybe (return nullPtr) (\x -> poke memLB (CULong x) >> return memLB) $ resourceMemoryLimitBytes s
+      memFB' <- maybe (return nullPtr) (\x -> poke memFB (CULong x) >> return memFB) $ resourceMemoryFileBytes s
+      memAB' <- maybe (return nullPtr) (\x -> poke memAB (CULong x) >> return memAB) $ resourceMemoryAnonymousBytes s
+      memMB' <- maybe (return nullPtr) (\x -> poke memMB (CULong x) >> return memMB) $ resourceMemoryMappedFileBytes s
+      c_toResourceStatistics (CDouble $ resourceStatisticsTimestamp s)
+        cpuUTS'
+        cpuSTS'
+        (CDouble $ resourceCPUsLimit s)
+        cpuPs'
+        cpuT'
+        cpuTTS'
+        memRSS'
+        memLB'
+        memFB'
+        memAB'
+        memMB'
+  unmarshal s = alloca $ \tsP ->
+    alloca $ \cpuLP ->
+    alloca $ \cpuUTSP ->
+    alloca $ \cpuUTSSP ->
+    alloca $ \cpuSTSP ->
+    alloca $ \cpuSTSSP ->
+    alloca $ \cpuPsP ->
+    alloca $ \cpuPsSP ->
+    alloca $ \cpuTP ->
+    alloca $ \cpuTSP ->
+    alloca $ \cpuTTSP ->
+    alloca $ \cpuTTSSP ->
+    alloca $ \memRSSP ->
+    alloca $ \memRSSSP ->
+    alloca $ \memLBP ->
+    alloca $ \memLBSP ->
+    alloca $ \memFBP ->
+    alloca $ \memFBSP ->
+    alloca $ \memABP ->
+    alloca $ \memABSP ->
+    alloca $ \memMBP ->
+    alloca $ \memMBSP -> do
+      c_fromResourceStatistics s
+        tsP
+        cpuUTSP
+        cpuUTSSP
+        cpuSTSP
+        cpuSTSSP
+        cpuLP
+        cpuPsP
+        cpuPsSP
+        cpuTP
+        cpuTSP
+        cpuTTSP
+        cpuTTSSP
+        memRSSP
+        memRSSSP
+        memLBP
+        memLBSP
+        memFBP
+        memFBSP
+        memABP
+        memABSP
+        memMBP
+        memMBSP
+      (CDouble ts) <- peek tsP
+      cpuUTS <- toDouble <$> peekMaybePrim cpuUTSP cpuUTSSP
+      cpuSTS <- toDouble <$> peekMaybePrim cpuSTSP cpuSTSSP
+      (CDouble l) <- peek cpuLP
+      cpuPs <- toWord32 <$> peekMaybePrim cpuPsP cpuPsSP
+      cpuT <- toWord32 <$> peekMaybePrim cpuTP cpuTSP
+      cpuTTS <- toDouble <$> peekMaybePrim cpuTTSP cpuTTSSP
+      memRSS <- toWord64 <$> peekMaybePrim memRSSP memRSSSP
+      memLB <- toWord64 <$> peekMaybePrim memLBP memLBSP
+      memFB <- toWord64 <$> peekMaybePrim memFBP memFBSP
+      memAB <- toWord64 <$> peekMaybePrim memABP memABSP
+      memMB <- toWord64 <$> peekMaybePrim memMBP memMBSP
+      return $ ResourceStatistics ts cpuUTS cpuSTS l cpuPs cpuT cpuTTS memRSS memLB memFB memAB memMB
+      where
+        toDouble mx = case mx of
+                        Nothing -> Nothing
+                        Just (CDouble x) -> Just x
+        toWord32 mx = case mx of
+                        Nothing -> Nothing
+                        Just (CUInt x) -> Just x
+        toWord64 mx = case mx of
+                        Nothing -> Nothing
+                        Just (CULong x) -> Just x
   destroy = c_destroyResourceStatistics
 -- *****************************************************************************************************************
 -- 
@@ -1203,6 +1371,48 @@ foreign import ccall "ext/types.h destroyResourceUsage" c_destroyResourceUsage
   -> IO ()
 
 instance CPPValue ResourceUsage where
+  marshal (ResourceUsage sid fid eid en tid rs) = do
+    sidP <- marshal sid
+    fidP <- marshal fid
+    eidP <- maybe (return nullPtr) marshal eid
+    tidP <- maybe (return nullPtr) marshal tid
+    rsP <- maybe (return nullPtr) marshal rs
+    result <- maybeUnsafeUseAsCStringLen en $ \(enP, enL) -> do
+      c_toResourceUsage sidP fidP eidP enP (fromIntegral enL) tidP rsP
+    destroy sidP
+    destroy fidP
+    destroy eidP
+    destroy tidP
+    destroy rsP
+    return result
+  unmarshal up = alloca $ \sidPP ->
+    alloca $ \fidPP ->
+    alloca $ \eidPP ->
+    alloca $ \enPP ->
+    alloca $ \enLP ->
+    alloca $ \tidPP ->
+    alloca $ \rsPP -> do
+      poke eidPP nullPtr
+      poke enPP nullPtr
+      poke tidPP nullPtr
+      poke rsPP nullPtr
+      c_fromResourceUsage up sidPP fidPP eidPP enPP enLP tidPP rsPP
+      sid <- unmarshal =<< peek sidPP
+      fid <- unmarshal =<< peek fidPP
+      eidP <- peek eidPP
+      eid <- if eidP == nullPtr
+               then return Nothing
+               else Just <$> unmarshal eidP
+      en <- peekMaybeBS enPP enLP
+      tidP <- peek tidPP
+      tid <- if tidP == nullPtr
+               then return Nothing
+               else Just <$> unmarshal tidP
+      rsP <- peek rsPP
+      rs <- if rsP == nullPtr
+              then return Nothing
+              else Just <$> unmarshal rsP
+      return $ ResourceUsage sid fid eid en tid rs
   destroy = c_destroyResourceUsage
 -- *****************************************************************************************************************
 -- 
@@ -1220,7 +1430,7 @@ foreign import ccall "ext/types.h toRequest" c_toRequest
 foreign import ccall "ext/types.h fromRequest" c_fromRequest
   :: RequestPtr
   -> Ptr SlaveIDPtr
-  -> Ptr ResourcePtr
+  -> Ptr (Ptr ResourcePtr)
   -> Ptr CInt
   -> IO ()
 foreign import ccall "ext/types.h destroyRequest" c_destroyRequest
@@ -1235,16 +1445,18 @@ instance CPPValue Request where
     mapM_ destroy rps
     return p
   unmarshal r = alloca $ \spp -> alloca $ \rpp -> alloca $ \rlp -> do
+    poke spp nullPtr
     c_fromRequest r spp rpp rlp
     sp <- peek spp
     rl <- peek rlp
-    rps <- peekArray (fromIntegral rl) rpp
+    rps <- peekArray (fromIntegral rl) =<< peek rpp
     rs <- mapM unmarshal rps
     s <- if sp == nullPtr
       then return Nothing
       else fmap Just $ unmarshal sp
     return $ Request s rs
   destroy = c_destroyRequest
+  equalExceptDefaults (Request sid rs) (Request sid' rs') = sid == sid' && and (zipWith equalExceptDefaults rs rs')
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
@@ -1290,7 +1502,59 @@ foreign import ccall "ext/types.h destroyOffer" c_destroyOffer
   -> IO ()
 
 instance CPPValue Offer where
+  marshal (Offer oid fid sid hn rs as es) = do
+    oidP <- marshal oid
+    fidP <- marshal fid
+    sidP <- marshal sid
+    rPs <- mapM marshal rs
+    aPs <- mapM (marshal . uncurry Attribute) as
+    ePs <- mapM marshal es
+    result <- unsafeUseAsCStringLen hn $ \(hnp, hnl) ->
+      withArrayLen rPs $ \rLen rPP ->
+      withArrayLen aPs $ \aLen aPP ->
+      withArrayLen ePs $ \eLen ePP ->
+        c_toOffer oidP fidP sidP hnp (fromIntegral hnl) rPP (fromIntegral rLen) aPP (fromIntegral aLen) ePP (fromIntegral eLen)
+    destroy oidP
+    destroy fidP
+    destroy sidP
+    mapM_ destroy rPs
+    mapM_ destroy aPs
+    mapM_ destroy ePs
+    return result
+  unmarshal op = alloca $ \oidPP ->
+    alloca $ \fidPP ->
+    alloca $ \sidPP ->
+    alloca $ \hnPP ->
+    alloca $ \hLenP ->
+    alloca $ \rPPP ->
+    alloca $ \rLenP ->
+    alloca $ \aPPP ->
+    alloca $ \aLenP ->
+    alloca $ \ePPP ->
+    alloca $ \eLenP -> do
+      c_fromOffer op oidPP fidPP sidPP hnPP hLenP rPPP rLenP aPPP aLenP ePPP eLenP
+      oid <- unmarshal =<< peek oidPP
+      fid <- unmarshal =<< peek fidPP
+      sid <- unmarshal =<< peek sidPP
+      hnP <- peek hnPP
+      hLen <- peek hLenP
+      hn <- packCStringLen (hnP, fromIntegral hLen)
+      rLen <- peek rLenP
+      rPP <- peek rPPP
+      rs <- mapM unmarshal =<< peekArray (fromIntegral rLen) rPP
+      aLen <- peek aLenP
+      aPP <- peek aPPP
+      as <- mapM unmarshal =<< peekArray (fromIntegral aLen) aPP
+      eLen <- peek eLenP
+      ePP <- peek ePPP
+      es <- mapM unmarshal =<< peekArray (fromIntegral eLen) ePP
+      return $ Offer oid fid sid hn rs (map (\(Attribute k v) -> (k, v)) as) es
   destroy = c_destroyOffer
+  equalExceptDefaults (Offer oid fid sid hn rs as es) (Offer oid' fid' sid' hn' rs' as' es') =
+    oid == oid' && fid == fid' && sid == sid' && hn == hn' &&
+      and (zipWith equalExceptDefaults rs rs') &&
+      and (zipWith (\l r -> equalExceptDefaults (uncurry Attribute l) (uncurry Attribute r)) as as') &&
+      es == es'
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
@@ -1360,6 +1624,9 @@ instance CPPValue TaskInfo where
     alloca $ \cpp ->
     alloca $ \dpp ->
     alloca $ \dlp -> do
+      poke epp nullPtr
+      poke cpp nullPtr
+      poke dpp nullPtr
       c_fromTaskInfo t npp nlp tpp spp rpp rlp epp cpp dpp dlp
       np <- peek npp
       nl <- peek nlp
@@ -1379,14 +1646,16 @@ instance CPPValue TaskInfo where
       c <- if cp == nullPtr
         then return Nothing
         else fmap Just $ unmarshal cp
-      dp <- peek dpp
-      dl <- peek dlp
-      d <- if dp == nullPtr
-        then return Nothing
-        else fmap Just $ packCStringLen (dp, fromIntegral dl)
+      d <- peekMaybeBS dpp dlp
       return $ TaskInfo n t s rs e c d
   destroy = c_destroyTaskInfo
-
+  equalExceptDefaults (TaskInfo n id sid rs e c d) (TaskInfo n' id' sid' rs' e' c' d') =
+    n == n' && id == id' && sid == sid' && and (zipWith equalExceptDefaults rs rs')
+      && mEq e e' && mEq c c' && d == d'
+    where
+      mEq ml mr = case equalExceptDefaults <$> ml <*> mr of
+        Nothing -> ml == mr
+        Just b -> b
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************

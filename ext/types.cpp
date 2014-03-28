@@ -318,6 +318,7 @@ SlaveInfoPtr toSlaveInfo(char* hostname,
 	}
 	if (slaveID != NULL)
 		*info->mutable_id() = *slaveID;
+
 	if (checkpoint != NULL)
 		info->set_checkpoint(*checkpoint);
 
@@ -384,6 +385,7 @@ TaskInfoPtr toTaskInfo(char* infoName,
 {
 	TaskInfoPtr info = new TaskInfo();
 	info->set_name(infoName, infoNameLen);
+	std::string* n = info->mutable_name();
 	*info->mutable_task_id() = *taskID;
 	*info->mutable_slave_id() = *slaveID;
 	for (int i = 0; i < resourcesLen; ++i)
@@ -394,6 +396,8 @@ TaskInfoPtr toTaskInfo(char* infoName,
 		info->mutable_command()->MergeFrom(*commandInfo);
 	if (data != NULL)
 		info->set_data(data, dataLen);
+
+	return info;
 }
 
 void fromTaskInfo(TaskInfoPtr taskInfo,
@@ -408,14 +412,13 @@ void fromTaskInfo(TaskInfoPtr taskInfo,
 	char** data,
 	int* dataLen)
 {
-	std::string in = taskInfo->name();
-	*infoName = (char*) in.data();
-	*infoNameLen = in.size();
+	std::string* in = taskInfo->mutable_name();
+	*infoName = (char*) in->data();
+	*infoNameLen = in->size();
 	*taskID = taskInfo->mutable_task_id();
 	*slaveID = taskInfo->mutable_slave_id();
 	*resources = taskInfo->mutable_resources()->mutable_data();
 	*resourcesLen = taskInfo->resources_size();
-
 	if (taskInfo->has_executor())
 		*executorInfo = taskInfo->mutable_executor();
 
@@ -468,8 +471,11 @@ void fromTaskStatus(TaskStatusPtr status,
 	char** data,
 	int* dataLen,
 	SlaveIDPtr* slaveID,
+	bool* timestampSet,
 	double* timestamp)
 {
+	*timestampSet = false;
+
 	*taskID	= status->mutable_task_id();
 	*state = status->state();
 	if (status->has_message())
@@ -490,7 +496,10 @@ void fromTaskStatus(TaskStatusPtr status,
 		*slaveID = status->mutable_slave_id();
 
 	if (status->has_timestamp())
+	{
+		*timestampSet = true;
 		*timestamp = status->timestamp();
+	}
 }
 
 void destroyTaskStatus(TaskStatusPtr taskStatus)
@@ -584,6 +593,9 @@ ResourcePtr toResource(char* name,
 	if (value->has_set())
 		*(resource->mutable_set()) = *value->mutable_set();
 
+	if (value->has_text())
+		*resource->mutable_set()->add_item() = value->mutable_text()->value();
+
 	if (role != NULL)
 		resource->set_role(role, roleLen);
 
@@ -617,14 +629,12 @@ void fromResource(ResourcePtr resource,
 		v->set_type(Value_Type_SET);
 		*v->mutable_set() = resource->set();
 	}
+
 	*value = v;
 
-	if (resource->has_role())
-	{
-		std::string r = resource->role();
-		*role = (char*) r.data();
-		*roleLen = r.size();
-	}
+	std::string r = resource->role();
+	*role = (char*) r.data();
+	*roleLen = r.size();
 }
 
 void destroyResource(ResourcePtr resource)
@@ -679,6 +689,7 @@ void fromExecutorInfo(ExecutorInfoPtr info,
 	*frameworkID = info->mutable_framework_id();
 	*commandInfo = info->mutable_command();
 	*resources = info->mutable_resources()->mutable_data();
+	*resourcesLen = info->resources_size();
 	if (info->has_name())
 	{
 		std::string n = info->name();
@@ -843,11 +854,9 @@ void destroyRequest(RequestPtr request)
 
 ValuePtr toValue(int type,
 	double scalar,
-	unsigned long* lows,
-	unsigned long* highs,
+	ValueRangePtr* ranges,
 	int rangeLen,
-	char** strings,
-	int* stringLens,
+	StdStringPtr* strings,
 	int stringsLen,
 	char* text,
 	int textLen)
@@ -862,24 +871,15 @@ ValuePtr toValue(int type,
 	}
 	else if (type == Value_Type_RANGES)
 	{
-		Value_Ranges rs;
-		Value_Range r;
+		Value_RangesPtr rs = value->mutable_ranges();
 		for (int i = 0; i < rangeLen; ++i)
-		{
-			r.set_begin(lows[i]);
-			r.set_end(highs[i]);
-			*rs.add_range() = r;
-		}
-
-		*value->mutable_ranges() = rs;
+			*rs->add_range() = *ranges[i];
 	}
 	else if (type == Value_Type_SET)
 	{
-		Value_Set s;
+		Value_SetPtr set = value->mutable_set();
 		for (int i = 0; i < stringsLen; ++i)
-			s.add_item(strings[i], stringLens[i]);
-
-		*value->mutable_set() = s;
+			set->add_item(*strings[i]);
 	}
 	else if (type == Value_Type_TEXT)
 	{
@@ -894,11 +894,9 @@ ValuePtr toValue(int type,
 void fromValue(ValuePtr value,
 	int* type,
 	double* scalar,
-	unsigned long** lows,
-	unsigned long** highs,
+	ValueRangePtr** ranges,	
 	int* rangeLen,
-	char*** strings,
-	int** stringLens,
+	StdStringPtr** strings,
 	int* stringsLen,
 	char** text,
 	int* textLen)
@@ -912,11 +910,12 @@ void fromValue(ValuePtr value,
 	else if (t == Value_Type_RANGES)
 	{
 		*rangeLen = value->mutable_ranges()->range_size();
-		// don't know
+		*ranges = value->mutable_ranges()->mutable_range()->mutable_data();
 	}
 	else if (t == Value_Type_SET)
 	{
-		// don't know
+		*stringsLen = value->set().item_size();
+		*strings = value->mutable_set()->mutable_item()->mutable_data();
 	}
 	else if (t == Value_Type_TEXT)
 	{
@@ -942,7 +941,8 @@ CommandInfoPtr toCommandInfo(CommandInfo_URIPtr* uris,
 	CommandInfoPtr info = new CommandInfo();
 	for (int i = 0; i < urisLen; ++i)
 		*info->add_uris() = *uris[i];
-	*info->mutable_environment() = *environment;
+	if (environment != NULL)
+		*info->mutable_environment() = *environment;
 	info->set_value(value, valueLen);
 	return info;
 }
@@ -956,10 +956,12 @@ void fromCommandInfo(CommandInfoPtr info,
 {
 	*uris = info->mutable_uris()->mutable_data();
 	*urisLen = info->uris_size();
-	*environment = info->mutable_environment();
-	std::string v = info->value();
-	*value = (char*) v.data();
-	*valueLen = v.size();
+
+	if (info->has_environment())
+		*environment = info->mutable_environment();
+
+	*value = (char*) info->mutable_value()->data();
+	*valueLen = info->mutable_value()->size();
 }
 
 void destroyCommandInfo(CommandInfoPtr info)
@@ -1064,9 +1066,8 @@ void fromOffer(OfferPtr offer,
 	*offerID = offer->mutable_id();
 	*frameworkID = offer->mutable_framework_id();
 	*slaveID = offer->mutable_slave_id();
-	std::string hn = offer->hostname();
-	*hostname = (char*) hn.data();
-	*hostnameLen = hn.size();
+	*hostname = (char*) offer->mutable_hostname()->data();
+	*hostnameLen = offer->mutable_hostname()->size();
 	*resources = offer->mutable_resources()->mutable_data();
 	*resourcesLen = offer->resources_size();
 	*attributes = offer->mutable_attributes()->mutable_data();
@@ -1122,12 +1123,12 @@ ResourceStatisticsPtr toResourceStatistics(double timestamp,
 }
 
 void fromResourceStatistics(ResourceStatisticsPtr stats,
-double timestamp,
+double* timestamp,
 double* cpusUserTimeSecs,
 bool* cpusUserTimeSecsSet,
 double* cpusSystemTimeSecs,
 bool* cpusSystemTimeSecsSet,
-double cpusLimit,
+double* cpusLimit,
 unsigned int* cpusPeriods,
 bool* cpusPeriodsSet,
 unsigned int* cpusThrottled,
@@ -1145,7 +1146,79 @@ bool* memoryAnonymousBytesSet,
 unsigned long* memoryMappedFileBytes,
 bool* memoryMappedFileBytesSet)
 {
-	
+	*cpusUserTimeSecsSet = false;
+	*cpusSystemTimeSecsSet = false;
+	*cpusPeriodsSet = false;
+	*cpusThrottledSet = false;
+	*cpusThrottledTimeSecsSet = false;
+	*memoryResidentSetSizeSet = false;
+	*memoryLimitBytesSet = false;
+	*memoryFileBytesSet = false;
+	*memoryAnonymousBytesSet = false;
+	*memoryMappedFileBytesSet = false;
+
+	*timestamp = stats->timestamp();
+	*cpusLimit = stats->cpus_limit();
+
+	if (stats->has_cpus_user_time_secs())
+	{
+		*cpusUserTimeSecs = stats->cpus_user_time_secs();
+		*cpusUserTimeSecsSet = true;
+	}
+
+	if (stats->has_cpus_system_time_secs())
+	{
+		*cpusSystemTimeSecs = stats->cpus_system_time_secs();
+		*cpusSystemTimeSecsSet = true;
+	}
+
+	if (stats->has_cpus_nr_periods())
+	{
+		*cpusPeriods = stats->cpus_nr_periods();
+		*cpusPeriodsSet = true;
+	}
+
+	if (stats->has_cpus_nr_throttled())
+	{
+		*cpusThrottled = stats->cpus_nr_throttled();
+		*cpusThrottledSet = true;
+	}
+
+	if (stats->has_cpus_throttled_time_secs())
+	{
+		*cpusThrottledTimeSecs = stats->cpus_throttled_time_secs();
+		*cpusThrottledTimeSecsSet = true;
+	}
+
+	if (stats->has_mem_rss_bytes())
+	{
+		*memoryResidentSetSize = stats->mem_rss_bytes();
+		*memoryResidentSetSizeSet = true;
+	}
+
+	if (stats->has_mem_limit_bytes())
+	{
+		*memoryLimitBytes = stats->mem_limit_bytes();
+		*memoryLimitBytesSet = true;
+	}
+
+	if (stats->has_mem_file_bytes())
+	{
+		*memoryFileBytes = stats->mem_file_bytes();
+		*memoryFileBytesSet = true;
+	}
+
+	if (stats->has_mem_anon_bytes())
+	{
+		*memoryAnonymousBytes = stats->mem_anon_bytes();
+		*memoryAnonymousBytesSet = true;
+	}
+
+	if (stats->has_mem_mapped_file_bytes())
+	{
+		*memoryMappedFileBytes = stats->mem_mapped_file_bytes();
+		*memoryMappedFileBytesSet = true;
+	}
 }
 
 void destroyResourceStatistics(ResourceStatisticsPtr statistics)
@@ -1201,10 +1274,54 @@ void fromParameter(ParameterPtr parameter,
 	*keyP = (char*) k.data();
 	*keyLenP = k.size();
 	*valueP = (char*) v.data();
-	*valueLenP = k.size();
+	*valueLenP = v.size();
 }
 
 void destroyParameter(ParameterPtr parameter)
 {
 	delete parameter;
 }
+
+// **********************************************************************
+
+ValueRangePtr toRange(unsigned long low,
+	unsigned long high)
+{
+	ValueRangePtr range = new Value_Range();
+	range->set_begin(low);
+	range->set_end(high);
+	return range;
+}
+
+void fromRange(ValueRangePtr range,
+	unsigned long* lowP,
+	unsigned long* highP)
+{
+	*lowP = range->begin();
+	*highP = range->end();
+}
+
+void destroyRange(ValueRangePtr range)
+{
+	delete range;
+}
+// **********************************************************************
+
+StdStringPtr toStdString(char* str,
+	int strLen)
+{
+	return new std::string(str, strLen);
+}
+
+void fromStdString(StdStringPtr sp, char** str, int* strLen)
+{
+	*str = (char*) sp->data();
+	*strLen = sp->size();
+}
+
+void destroyStdString(StdStringPtr sp)
+{
+	delete sp;
+}
+
+

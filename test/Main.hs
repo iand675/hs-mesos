@@ -8,14 +8,24 @@ import Data.IORef
 import Foreign.C.Types
 import System.Mesos.Scheduler
 import System.Mesos.Types
+import System.Mesos.Internal
 import Test.QuickCheck
 import Test.QuickCheck.Arbitrary
 import Test.QuickCheck.Monadic
 
 markCalled r = modifyIORef r (+1)
 
+beforeAndAfter x = do
+  print x
+  p <- marshal x
+  x' <- unmarshal p
+  destroy p
+  print x'
+
 main :: IO ()
 main = do
+  -- beforeAndAfter $ SlaveInfo {slaveInfoHostname = "\NUL\STX\ETX\EOT\EOT", slaveInfoPort = Just 2, slaveInfoResources = [Resource {resourceName = "\EOT\SOH\SOH\EOT\SOH", resourceValue = Text "", resourceRole = Just "\STX"},Resource {resourceName = "\NUL\NUL\SOH\EOT", resourceValue = Scalar 0.17900899705823084, resourceRole = Nothing},Resource {resourceName = "\NUL\ETX\ETX", resourceValue = Scalar 4.503865622328922, resourceRole = Just "\STX\ETX"}], slaveInfoAttributes = [("",Set ["\SOH\STX\ETX\NUL","\ETX\STX\ETX"]),("",Scalar (-2.1180957294956677)),("\ETX\ETX\ETX\NUL",Set ["\STX\STX\ETX","\ETX\EOT\ETX","\NUL\SOH\ETX","\STX\STX","\ETX\STX\ETX"]),("\ETX\SOH\STX\EOT\ETX",Text "\EOT\EOT\SOH\EOT")], slaveInfoSlaveID = Just (SlaveID {fromSlaveID = "\SOH\ETX\EOT"}), slaveInfoCheckpoint = Nothing}
+  testIDs
   {-
   ref <- newIORef 0
   let called = markCalled ref
@@ -38,7 +48,6 @@ main = do
   putStrLn "should be called 10 times: "
   print count
   -}
-  testIDs
 
 instance Arbitrary CUInt where
   arbitrary = CUInt <$> arbitrary
@@ -94,12 +103,11 @@ instance Arbitrary SlaveInfo where
 instance Arbitrary Value where
   arbitrary = oneof
     [ Scalar <$> arbitrary
-    , Range <$> range
     , Ranges <$> listOf range
     , Set <$> listOf arbitrary
     , Text <$> arbitrary
     ]
-    where range = arbitrary >>= \l -> arbitrary >>= \r -> return (CULong l, CULong r)
+    where range = arbitrary >>= \l -> arbitrary >>= \r -> return (l, r)
 instance Arbitrary Attribute where
   arbitrary = Attribute <$> arbitrary <*> arbitrary
 instance Arbitrary Resource where
@@ -156,6 +164,8 @@ instance Arbitrary Filters where
   arbitrary = Filters <$> arbitrary
 instance Arbitrary Environment where
   arbitrary = Environment <$> arbitrary
+instance Arbitrary Parameter where
+  arbitrary = Parameter <$> arbitrary <*> arbitrary
 instance Arbitrary Parameters where
   arbitrary = Parameters <$> arbitrary
 instance Arbitrary Credential where
@@ -171,12 +181,23 @@ idempotentMarshalling x = do
 prop_idempotentMarshalling :: (Show a, Eq a, CPPValue a) => Gen a -> Property
 prop_idempotentMarshalling g = monadicIO $ forAllM g $ \x -> do
   res <- Test.QuickCheck.Monadic.run $ idempotentMarshalling x
-  assert (x == res)
+  -- Test.QuickCheck.Monadic.run $ print x
+  if equalExceptDefaults x res
+    then assert True
+    else do
+      Test.QuickCheck.Monadic.run $ do
+        putStrLn "Original"
+        print x
+        putStrLn "Unmarshalled"
+        print res
+      assert False
 
 qcIM :: (Show a, Eq a, CPPValue a) => Gen a -> IO ()
 qcIM = quickCheck . prop_idempotentMarshalling
 
 testIDs = do
+  putStrLn "Testing Value"
+  qcIM (arbitrary :: Gen Value)
   putStrLn "Testing FrameworkID"
   qcIM (arbitrary :: Gen FrameworkID)
   putStrLn "Testing OfferID"
@@ -189,41 +210,39 @@ testIDs = do
   qcIM (arbitrary :: Gen ExecutorID)
   putStrLn "Testing ContainerID"
   qcIM (arbitrary :: Gen ContainerID)
+  putStrLn "Testing Filters"
+  qcIM (arbitrary :: Gen Filters)
+  putStrLn "Testing Environment"
+  qcIM (arbitrary :: Gen Environment)
   putStrLn "Testing FrameworkInfo"
   qcIM (arbitrary :: Gen FrameworkInfo)
   putStrLn "Testing CommandURI"
   qcIM (arbitrary :: Gen CommandURI)
+  putStrLn "Testing Credential"
+  qcIM (arbitrary :: Gen Credential)
+  putStrLn "Testing TaskStatus"
+  qcIM (arbitrary :: Gen TaskStatus)
+  putStrLn "Testing ResourceUsage"
+  qcIM (arbitrary :: Gen ResourceUsage)
+  putStrLn "Testing ResourceStatistics"
+  qcIM (arbitrary :: Gen ResourceStatistics)
+  putStrLn "Testing Parameters"
+  qcIM (arbitrary :: Gen Parameters)
+  putStrLn "Testing Attribute"
+  qcIM (arbitrary :: Gen Attribute)
+  putStrLn "Testing Resource"
+  qcIM (arbitrary :: Gen Resource)
   putStrLn "Testing CommandInfo"
   qcIM (arbitrary :: Gen CommandInfo)
   putStrLn "Testing ExecutorInfo"
   qcIM (arbitrary :: Gen ExecutorInfo)
   putStrLn "Testing MasterInfo"
   qcIM (arbitrary :: Gen MasterInfo)
-  putStrLn "Testing SlaveInfo"
-  qcIM (arbitrary :: Gen SlaveInfo)
-  putStrLn "Testing Value"
-  qcIM (arbitrary :: Gen Value)
-  putStrLn "Testing Attribute"
-  qcIM (arbitrary :: Gen Attribute)
-  putStrLn "Testing Resource"
-  qcIM (arbitrary :: Gen Resource)
-  putStrLn "Testing ResourceStatistics"
-  qcIM (arbitrary :: Gen ResourceStatistics)
-  putStrLn "Testing ResourceUsage"
-  qcIM (arbitrary :: Gen ResourceUsage)
   putStrLn "Testing Request"
   qcIM (arbitrary :: Gen Request)
   putStrLn "Testing Offer"
   qcIM (arbitrary :: Gen Offer)
   putStrLn "Testing TaskInfo"
   qcIM (arbitrary :: Gen TaskInfo)
-  putStrLn "Testing TaskStatus"
-  qcIM (arbitrary :: Gen TaskStatus)
-  putStrLn "Testing Filters"
-  qcIM (arbitrary :: Gen Filters)
-  putStrLn "Testing Environment"
-  qcIM (arbitrary :: Gen Environment)
-  putStrLn "Testing Parameters"
-  qcIM (arbitrary :: Gen Parameters)
-  putStrLn "Testing Credential"
-  qcIM (arbitrary :: Gen Credential)
+  putStrLn "Testing SlaveInfo"
+  qcIM (arbitrary :: Gen SlaveInfo)
