@@ -54,7 +54,11 @@ public:
 	virtual void resourceOffers (SchedulerDriver* driver,
 			const std::vector<Offer>& offers)
 	{
-		resourceOffersCb(driver, offers.data(), offers.size());
+		std::vector<Offer*> pointerized = std::vector<Offer*>(offers.size());
+		for (int i = 0; i < offers.size(); ++i)
+			pointerized[i] = (Offer*) &offers[i];
+
+		resourceOffersCb(driver, pointerized.data(), pointerized.size());
 	}
 
 	virtual void offerRescinded (SchedulerDriver* driver,

@@ -26,7 +26,7 @@ typedef void OnSchedulerReRegisteredCallback(SchedulerDriverPtr,
 typedef void OnSchedulerDisconnectedCallback(SchedulerDriverPtr);
 
 typedef void OnSchedulerResourceOffers(SchedulerDriverPtr,
-		const OfferPtr,
+		const OfferPtr*,
 		int);
 
 typedef void OnOfferRescinded(SchedulerDriverPtr,

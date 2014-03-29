@@ -1,5 +1,6 @@
 module System.Mesos.Scheduler (
   Scheduler,
+  ToScheduler(..),
   createScheduler,
   destroyScheduler,
   SchedulerDriver,
@@ -22,6 +23,7 @@ import Data.ByteString (ByteString, packCStringLen)
 import Data.ByteString.Unsafe (unsafeUseAsCStringLen)
 import Foreign.C
 import Foreign.Ptr
+import Foreign.Marshal.Array
 import System.Mesos.Internal
 
 class ToScheduler a where
@@ -71,7 +73,8 @@ createScheduler s = do
     (disconnected s) sd
   resourceOffersFun <- wrapSchedulerResourceOffers $ \sdp os c -> do
     let sd = SchedulerDriver sdp
-    (resourceOffers s) sd []
+    offers <- mapM unmarshal =<< peekArray (fromIntegral c) os
+    (resourceOffers s) sd offers
   offerRescindedFun <- wrapSchedulerOfferRescinded $ \sdp oidp -> do
     let sd = SchedulerDriver sdp
     oid <- unmarshal oidp
