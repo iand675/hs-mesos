@@ -3,6 +3,7 @@ module System.Mesos.Scheduler (
   ToScheduler(..),
   createScheduler,
   destroyScheduler,
+  withSchedulerDriver,
   SchedulerDriver,
   create,
   destroyDriver,
@@ -125,8 +126,27 @@ excerciseMethods = c_exerciseMethods . schedulerImpl
 withDriver :: (SchedulerDriverPtr -> IO CInt) -> SchedulerDriver -> IO Status
 withDriver f (SchedulerDriver p) = fmap (toEnum . fromIntegral) $ f p
 
+withSchedulerDriver :: ToScheduler a => a -> FrameworkInfo -> ByteString -> Maybe Credential -> (SchedulerDriver -> IO b) -> IO b
+withSchedulerDriver s i h c f = do
+  scheduler <- createScheduler s
+  driver <- create scheduler i h c
+  result <- f driver
+  destroyDriver driver
+  destroyScheduler scheduler
+  return result
+
 create :: Scheduler -> FrameworkInfo -> ByteString -> Maybe Credential -> IO SchedulerDriver
-create = undefined
+create s i h mc = do
+  fiP <- marshal i
+  result <- unsafeUseAsCStringLen h $ \(hP, hLen) -> case mc of
+    Nothing -> c_createSchedulerDriver (schedulerImpl s) fiP hP (fromIntegral hLen)
+    Just c -> do
+      cP <- marshal c
+      result <- c_createSchedulerDriverWithCredentials (schedulerImpl s) fiP hP (fromIntegral hLen) cP
+      destroy cP
+      return result
+  destroy fiP
+  return $ SchedulerDriver result
 
 destroyDriver :: SchedulerDriver -> IO ()
 destroyDriver = c_destroySchedulerDriver . fromSchedulerDriver
