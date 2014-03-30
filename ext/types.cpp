@@ -584,6 +584,8 @@ ResourcePtr toResource(char* name,
 {
 	ResourcePtr resource = new Resource();
 	resource->set_name(name, nameLen);
+	resource->set_type(value->type());
+
 	if (value->has_scalar())
 		*(resource->mutable_scalar()) = *value->mutable_scalar();
 
