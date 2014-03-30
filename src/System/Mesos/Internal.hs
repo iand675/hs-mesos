@@ -127,6 +127,11 @@ data Scheduler = Scheduler
   , rawSchedulerError            :: FunPtr RawSchedulerError
   }
 
+-- | Type representing the connection from a scheduler to Mesos. This
+-- handle is used both to manage the scheduler's lifecycle (start
+-- it, stop it, or wait for it to finish) and to interact with Mesos
+-- (e.g., launch tasks, kill tasks, etc.). See @MesosSchedulerDriver@
+-- below for a concrete example of a @SchedulerDriver@.
 newtype SchedulerDriver = SchedulerDriver { fromSchedulerDriver :: SchedulerDriverPtr }
   deriving (Show, Eq)
 

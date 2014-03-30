@@ -1,4 +1,5 @@
 module System.Mesos.Executor (
+  -- * Creating an executor
   ToExecutor(..),
   Executor,
   withExecutor,
