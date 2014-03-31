@@ -1,5 +1,4 @@
 module System.Mesos.Types (
-  CPPValue(..),
   SchedulerDriver,
   Scheduler,
   Status(..),
@@ -26,7 +25,6 @@ module System.Mesos.Types (
   isTerminal,
   TaskStatus(..),
   Filters(..),
-  Environment(..),
   Credential(..)
 ) where
 import System.Mesos.Internal
