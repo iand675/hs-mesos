@@ -1,3 +1,4 @@
+
 -- | Mesos executor interface and executor driver. An executor is
 -- responsible for launching tasks in a framework specific way (i.e.,
 -- creating new threads, new processes, etc). One or more executors
@@ -26,8 +27,6 @@ module System.Mesos.Executor (
   createDriver,
   destroyDriver,
   -- * Interacting with Mesos
-  createExecutor,
-  destroyExecutor,
   start,
   stop,
   abort,
@@ -43,6 +42,7 @@ import Foreign.Marshal.Safe
 import Foreign.Ptr
 import Foreign.Storable
 import System.Mesos.Internal
+import System.Mesos.Types
 
 withExecutor :: ToExecutor a => a -> (Executor -> IO b) -> IO b
 withExecutor e f = do

@@ -8,6 +8,7 @@ import Foreign.C
 import Foreign.Marshal
 import Foreign.Ptr
 import Foreign.Storable
+import System.Mesos.Types
 
 type CBool = CUChar
 
@@ -16,19 +17,6 @@ toCBool b = if b then 1 else 0
 
 fromCBool :: CBool -> Bool
 fromCBool b = b /= 0
-
-data Status = NotStarted | Running | Aborted | Stopped
-  deriving (Show, Eq)
-
-instance Enum Status where
-  fromEnum Running = 2
-  fromEnum NotStarted = 1
-  fromEnum Aborted = 3
-  fromEnum Stopped = 4
-  toEnum 1 = NotStarted
-  toEnum 2 = Running
-  toEnum 3 = Aborted
-  toEnum 4 = Stopped
 
 toStatus :: CInt -> Status
 toStatus = toEnum . fromIntegral
@@ -43,25 +31,6 @@ type RawFrameworkMessage = SchedulerDriverPtr -> ExecutorIDPtr -> SlaveIDPtr -> 
 type RawSlaveLost = SchedulerDriverPtr -> SlaveIDPtr -> IO ()
 type RawExecutorLost = SchedulerDriverPtr -> ExecutorIDPtr -> SlaveIDPtr -> CInt -> IO ()
 type RawError = SchedulerDriverPtr -> Ptr CChar -> CInt -> IO ()
-
-data TaskState = Staging | Starting | TaskRunning | Finished | Failed | Killed | Lost
-  deriving (Show, Eq)
-
-instance Enum TaskState where
-  fromEnum Staging = 6
-  fromEnum Starting = 0
-  fromEnum TaskRunning = 1
-  fromEnum Finished = 2
-  fromEnum Failed = 3
-  fromEnum Killed = 4
-  fromEnum Lost = 5
-  toEnum 0 = Starting
-  toEnum 1 = TaskRunning
-  toEnum 2 = Finished
-  toEnum 3 = Failed
-  toEnum 4 = Killed
-  toEnum 5 = Lost
-  toEnum 6 = Staging
 
 withMarshal :: CPPValue a => [a] -> (Int -> Ptr (Ptr a) -> IO b) -> IO b
 withMarshal l f = do
@@ -206,9 +175,6 @@ type FromID a = a -> Ptr (Ptr CChar) -> IO CInt
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-newtype FrameworkID = FrameworkID { fromFrameworkID :: ByteString }
-  deriving (Show, Eq)
-
 foreign import ccall "ext/types.h toFrameworkID" c_toFrameworkID :: ToID FrameworkIDPtr
 foreign import ccall "ext/types.h fromFrameworkID" c_fromFrameworkID :: FromID FrameworkIDPtr
 foreign import ccall "ext/types.h destroyFrameworkID" c_destroyFrameworkID :: FrameworkIDPtr -> IO ()
@@ -224,9 +190,6 @@ instance CPPValue FrameworkID where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-newtype OfferID = OfferID { fromOfferID :: ByteString }
-  deriving (Show, Eq)
-
 foreign import ccall "ext/types.h toOfferID" c_toOfferID :: ToID OfferIDPtr
 foreign import ccall "ext/types.h fromOfferID" c_fromOfferID :: FromID OfferIDPtr
 foreign import ccall "ext/types.h destroyOfferID" c_destroyOfferID :: OfferIDPtr -> IO ()
@@ -242,9 +205,6 @@ instance CPPValue OfferID where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-newtype SlaveID = SlaveID { fromSlaveID :: ByteString }
-  deriving (Show, Eq)
-
 foreign import ccall "ext/types.h toSlaveID" c_toSlaveID :: ToID SlaveIDPtr
 foreign import ccall "ext/types.h fromSlaveID" c_fromSlaveID :: FromID SlaveIDPtr
 foreign import ccall "ext/types.h destroySlaveID" c_destroySlaveID :: SlaveIDPtr -> IO ()
@@ -260,9 +220,6 @@ instance CPPValue SlaveID where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-newtype TaskID = TaskID { fromTaskID :: ByteString }
-  deriving (Show, Eq)
-
 foreign import ccall "ext/types.h toTaskID" c_toTaskID :: ToID TaskIDPtr
 foreign import ccall "ext/types.h fromTaskID" c_fromTaskID :: FromID TaskIDPtr
 foreign import ccall "ext/types.h destroyTaskID" c_destroyTaskID :: TaskIDPtr -> IO ()
@@ -278,9 +235,6 @@ instance CPPValue TaskID where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-newtype ExecutorID = ExecutorID { fromExecutorID :: ByteString }
-  deriving (Show, Eq)
-
 foreign import ccall "ext/types.h toExecutorID" c_toExecutorID :: ToID ExecutorIDPtr
 foreign import ccall "ext/types.h fromExecutorID" c_fromExecutorID :: FromID ExecutorIDPtr
 foreign import ccall "ext/types.h destroyExecutorID" c_destroyExecutorID :: ExecutorIDPtr -> IO ()
@@ -296,9 +250,6 @@ instance CPPValue ExecutorID where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-newtype ContainerID = ContainerID { fromContainerID :: ByteString }
-  deriving (Show, Eq)
-
 foreign import ccall "ext/types.h toContainerID" c_toContainerID :: ToID ContainerIDPtr
 foreign import ccall "ext/types.h fromContainerID" c_fromContainerID :: FromID ContainerIDPtr
 foreign import ccall "ext/types.h destroyContainerID" c_destroyContainerID :: ContainerIDPtr -> IO ()
@@ -337,17 +288,6 @@ instance CPPValue StdString where
     sl <- peek slp
     StdString <$> packCStringLen (sp, fromIntegral sl)
   destroy = c_destroyStdString
-
-data FrameworkInfo = FrameworkInfo
-  { frameworkUser :: ByteString
-  , frameworkName :: ByteString
-  , frameworkID   :: Maybe FrameworkID
-  , frameworkFailoverTimeout :: Maybe Double
-  , frameworkCheckpoint :: Maybe Bool
-  , frameworkRole :: Maybe ByteString
-  , frameworkHostname :: Maybe ByteString
-  }
-  deriving (Show, Eq)
 
 foreign import ccall "ext/types.h toFrameworkInfo" c_toFrameworkInfo
   :: Ptr CChar
@@ -461,11 +401,6 @@ instance CPPValue FrameworkInfo where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data CommandURI = CommandURI
-  { commandURIValue :: ByteString
-  , commandURIExecutable :: Maybe Bool
-  }
-  deriving (Show, Eq)
 type CommandURIPtr = Ptr CommandURI
 
 foreign import ccall "ext/types.h toCommandURI" c_toCommandURI
@@ -504,9 +439,6 @@ instance CPPValue CommandURI where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-newtype Filters = Filters { refuseSeconds :: Maybe Double }
-  deriving (Show, Eq)
-
 type FiltersPtr = Ptr Filters
 
 foreign import ccall "ext/types.h toFilters" c_toFilters
@@ -535,12 +467,6 @@ instance CPPValue Filters where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data Credential = Credential
-  { credentialPrincipal :: ByteString
-  , credentialSecret :: Maybe ByteString
-  }
-  deriving (Show, Eq)
-
 foreign import ccall "ext/types.h toCredential" c_toCredential
   :: Ptr CChar
   -> CInt
@@ -583,14 +509,6 @@ instance CPPValue Credential where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data MasterInfo = MasterInfo
-  { masterInfoID   :: ByteString
-  , masterInfoIP   :: Word32
-  , masterInfoPort :: Word32
-  , masterInfoPID  :: Maybe ByteString
-  , masterInfoHostname :: Maybe ByteString
-  }
-  deriving (Show, Eq)
 foreign import ccall "ext/types.h toMasterInfo" c_toMasterInfo
   :: Ptr CChar
   -> CInt
@@ -646,15 +564,6 @@ instance CPPValue MasterInfo where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data SlaveInfo = SlaveInfo
-  { slaveInfoHostname :: ByteString
-  , slaveInfoPort :: Maybe Word32
-  , slaveInfoResources :: [Resource]
-  , slaveInfoAttributes :: [(ByteString, Value)]
-  , slaveInfoSlaveID :: Maybe SlaveID
-  , slaveInfoCheckpoint :: Maybe Bool
-  }
-  deriving (Show, Eq)
 foreign import ccall "ext/types.h toSlaveInfo" c_toSlaveInfo
   :: Ptr CChar
   -> CInt
@@ -779,13 +688,6 @@ instance CPPValue ValueRange where
     return $ ValueRange l' r'
   destroy = c_destroyRange
 
-data Value
-  = Scalar Double
-  | Ranges [(Word64, Word64)]
-  | Set [ByteString]
-  | Text ByteString
-  deriving (Show, Eq)
-
 foreign import ccall "ext/types.h toValue" c_toValue
   :: CInt
   -> CDouble
@@ -857,12 +759,6 @@ instance CPPValue Value where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data Resource = Resource
-  { resourceName  :: ByteString
-  , resourceValue :: Value
-  , resourceRole  :: Maybe ByteString
-  }
-  deriving (Show, Eq)
 foreign import ccall "ext/types.h toResource" c_toResource
   :: Ptr CChar
   -> CInt
@@ -919,15 +815,6 @@ instance CPPValue Resource where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data TaskStatus = TaskStatus
-  { taskStatusTaskID :: TaskID
-  , taskStatusState :: TaskState
-  , taskStatusMessage :: Maybe ByteString
-  , taskStatusData :: Maybe ByteString
-  , taskStatusSlaveID :: Maybe SlaveID
-  , taskStatusTimestamp :: Maybe Double
-  }
-  deriving (Show, Eq)
 foreign import ccall "ext/types.h toTaskStatus" c_toTaskStatus
   :: TaskIDPtr
   -> CInt
@@ -1034,12 +921,6 @@ instance CPPValue Environment where
 -- 
 -- *****************************************************************************************************************
 
-data CommandInfo = CommandInfo
-  { commandInfoURIs :: [CommandURI]
-  , commandEnvironment :: Maybe [(ByteString, ByteString)]
-  , commandValue :: ByteString
-  }
-  deriving (Show, Eq)
 foreign import ccall "ext/types.h toCommandInfo" c_toCommandInfo
   :: Ptr CommandURIPtr
   -> CInt
@@ -1091,16 +972,6 @@ instance CPPValue CommandInfo where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data ExecutorInfo = ExecutorInfo
-  { executorInfoExecutorID  :: ExecutorID
-  , executorInfoFrameworkID :: FrameworkID
-  , executorInfoCommandInfo :: CommandInfo
-  , executorInfoResources   :: [Resource]
-  , executorName            :: Maybe ByteString
-  , executorSource          :: Maybe ByteString
-  , executorData            :: Maybe ByteString
-  }
-  deriving (Show, Eq)
 foreign import ccall "ext/types.h toExecutorInfo" c_toExecutorInfo
   :: ExecutorIDPtr
   -> FrameworkIDPtr
@@ -1180,21 +1051,6 @@ instance CPPValue ExecutorInfo where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data ResourceStatistics = ResourceStatistics
-  { resourceStatisticsTimestamp :: Double
-  , resourceStatisticsCPUsUserTimeSecs :: Maybe Double
-  , resourceStatisticsCPUsSystemTimeSecs :: Maybe Double
-  , resourceCPUsLimit :: Double
-  , resourceCPUsPeriods :: Maybe Word32
-  , resourceCPUsThrottled :: Maybe Word32
-  , resourceCPUsThrottledTimeSecs :: Maybe Double
-  , resourceMemoryResidentSetSize :: Maybe Word64
-  , resourceMemoryLimitBytes :: Maybe Word64
-  , resourceMemoryFileBytes :: Maybe Word64
-  , resourceMemoryAnonymousBytes :: Maybe Word64
-  , resourceMemoryMappedFileBytes :: Maybe Word64
-  }
-  deriving (Show, Eq)
 foreign import ccall "ext/types.h toResourceStatistics" c_toResourceStatistics
   :: CDouble
   -> Ptr CDouble
@@ -1343,15 +1199,6 @@ instance CPPValue ResourceStatistics where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data ResourceUsage = ResourceUsage
-  { resourceUsageSlaveID :: SlaveID
-  , resourceUsageFrameworkID :: FrameworkID
-  , resourceUsageExecutorID :: Maybe ExecutorID
-  , resourceUsageExecutorName :: Maybe ByteString
-  , resourceUsageTaskID :: Maybe TaskID
-  , resourceUsageStatistics :: Maybe ResourceStatistics
-  }
-  deriving (Show, Eq)
 foreign import ccall "ext/types.h toResourceUsage" c_toResourceUsage
   :: SlaveIDPtr
   -> FrameworkIDPtr
@@ -1422,11 +1269,6 @@ instance CPPValue ResourceUsage where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data Request = Request
-  { requestSlaveID :: Maybe SlaveID
-  , reqResources :: [Resource]
-  }
-  deriving (Show, Eq)
 foreign import ccall "ext/types.h toRequest" c_toRequest
   :: SlaveIDPtr
   -> Ptr ResourcePtr
@@ -1465,16 +1307,6 @@ instance CPPValue Request where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data Offer = Offer
-  { offerID :: OfferID
-  , offerFrameworkID :: FrameworkID
-  , offerSlaveID :: SlaveID
-  , offerHostname :: ByteString
-  , offerResources :: [Resource]
-  , offerAttributes :: [(ByteString, Value)]
-  , offerExecutorIDs :: [ExecutorID]
-  }
-  deriving (Show, Eq)
 foreign import ccall "ext/types.h toOffer" c_toOffer
   :: OfferIDPtr
   -> FrameworkIDPtr
@@ -1563,16 +1395,6 @@ instance CPPValue Offer where
 -- *****************************************************************************************************************
 -- 
 -- *****************************************************************************************************************
-data TaskInfo = TaskInfo
-  { taskInfoName :: ByteString
-  , taskID :: TaskID
-  , taskSlaveID :: SlaveID
-  , taskResources :: [Resource]
-  , taskExecutor :: Maybe ExecutorInfo
-  , taskCommand :: Maybe CommandInfo
-  , taskData :: Maybe ByteString
-  }
-  deriving (Show, Eq)
 
 foreign import ccall "ext/types.h toTaskInfo" c_toTaskInfo
   :: Ptr CChar
@@ -1608,8 +1430,12 @@ instance CPPValue TaskInfo where
     rps <- mapM marshal (taskResources t)
     tid <- marshal $ taskID t
     sid <- marshal $ taskSlaveID t
-    eip <- maybe (return nullPtr) marshal $ taskExecutor t
-    cip <- maybe (return nullPtr) marshal $ taskCommand t
+    eip <- maybe (return nullPtr) marshal $ case taskImplementation t of
+                                              TaskExecutor e -> Just e
+                                              _ -> Nothing
+    cip <- maybe (return nullPtr) marshal $ case taskImplementation t of
+                                              TaskCommand c -> Just c
+                                              _ -> Nothing
     p <- maybeUnsafeUseAsCStringLen (taskData t) $ \(tdp, tdl) ->
       withArrayLen rps $ \rl rpp ->
         c_toTaskInfo np (fromIntegral nl) tid sid rpp (fromIntegral rl) eip cip tdp (fromIntegral tdl)
@@ -1651,12 +1477,15 @@ instance CPPValue TaskInfo where
       c <- if cp == nullPtr
         then return Nothing
         else fmap Just $ unmarshal cp
+      let ei = maybe (maybe (error "FATAL: TaskInfo must have CommandInfo or ExecutorInfo") TaskCommand c) TaskExecutor e
       d <- peekMaybeBS dpp dlp
-      return $ TaskInfo n t s rs e c d
+      return $ TaskInfo n t s rs ei d
   destroy = c_destroyTaskInfo
-  equalExceptDefaults (TaskInfo n id sid rs e c d) (TaskInfo n' id' sid' rs' e' c' d') =
-    n == n' && id == id' && sid == sid' && and (zipWith equalExceptDefaults rs rs')
-      && mEq e e' && mEq c c' && d == d'
+  equalExceptDefaults (TaskInfo n id sid rs ei d) (TaskInfo n' id' sid' rs' ei' d') =
+    n == n' && id == id' && sid == sid' && and (zipWith equalExceptDefaults rs rs') && case (ei, ei') of
+      (TaskCommand c, TaskCommand c') -> equalExceptDefaults c c'
+      (TaskExecutor e, TaskExecutor e') -> equalExceptDefaults e e'
+      _ -> False
     where
       mEq ml mr = case equalExceptDefaults <$> ml <*> mr of
         Nothing -> ml == mr

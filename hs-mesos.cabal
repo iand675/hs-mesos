@@ -19,11 +19,13 @@ cabal-version:       >=1.10
 library
   exposed-modules:     System.Mesos.Executor,
                        System.Mesos.Scheduler,
+                       System.Mesos.Resources,
                        System.Mesos.Types,
-                       System.Mesos.Internal
+                       System.Mesos.Internal,
+                       System.Mesos.TaskStatus
 
   -- other-extensions:    
-  build-depends:       base >=4.7 && <4.8, bytestring
+  build-depends:       base >=4.7 && <4.8, bytestring, lens
   hs-source-dirs:      src
   default-language:    Haskell2010
   include-dirs:        ext, /usr/include, /usr/local/include/mesos
@@ -37,7 +39,7 @@ test-suite test
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
   hs-source-dirs:      test
-  build-depends:       base, hs-mesos, QuickCheck, bytestring
+  build-depends:       base, hs-mesos, QuickCheck, bytestring, lens
   default-language:    Haskell2010
 
 executable test-executor
@@ -48,5 +50,5 @@ executable test-executor
 executable test-framework
   main-is:             TestFramework.hs
   hs-source-dirs:      test
-  build-depends:       base, hs-mesos, bytestring
+  build-depends:       base, hs-mesos, bytestring, groom, lens
   default-language:    Haskell2010

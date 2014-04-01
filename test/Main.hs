@@ -147,10 +147,14 @@ instance Arbitrary Offer where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+instance Arbitrary TaskExecutionInfo where
+  arbitrary = oneof
+    [ TaskCommand <$> arbitrary
+    , TaskExecutor <$> arbitrary
+    ]
 instance Arbitrary TaskInfo where
   arbitrary = TaskInfo
     <$> arbitrary
-    <*> arbitrary
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
