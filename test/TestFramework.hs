@@ -66,9 +66,6 @@ instance ToScheduler TestScheduler where
 
   errorMessage _ _ message = C.putStrLn message
 
-frameworkInfo :: C.ByteString -> C.ByteString -> FrameworkInfo
-frameworkInfo u n = FrameworkInfo u n Nothing Nothing Nothing Nothing Nothing
-
 main = do
   role <- return "*" -- role to use when registering
   master <- return "127.0.1.1:5050" -- ip:port of master to connect to

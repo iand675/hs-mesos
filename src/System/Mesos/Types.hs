@@ -8,13 +8,18 @@ module System.Mesos.Types (
   ExecutorID(..),
   ContainerID(..),
   FrameworkInfo(..),
+  frameworkInfo,
   CommandURI(..),
+  commandURI,
   CommandInfo(..),
   ExecutorInfo(..),
   MasterInfo(..),
+  masterInfo,
   SlaveInfo(..),
+  slaveInfo,
   Value(..),
   Resource(..),
+  resource,
   ResourceStatistics(..),
   ResourceUsage(..),
   Request(..),
@@ -25,7 +30,9 @@ module System.Mesos.Types (
   isTerminal,
   TaskStatus(..),
   Filters(..),
-  Credential(..)
+  filters,
+  Credential(..),
+  credential
 ) where
 import Data.Word
 import Data.ByteString (ByteString)
@@ -128,11 +135,17 @@ data FrameworkInfo = FrameworkInfo
   }
   deriving (Show, Eq)
 
+frameworkInfo :: ByteString -> ByteString -> FrameworkInfo
+frameworkInfo u n = FrameworkInfo u n Nothing Nothing Nothing Nothing Nothing
+
 data CommandURI = CommandURI
   { commandURIValue      :: ByteString
   , commandURIExecutable :: Maybe Bool
   }
   deriving (Show, Eq)
+
+commandURI :: ByteString -> CommandURI
+commandURI v = CommandURI v Nothing
 
 newtype Filters = Filters
   { refuseSeconds :: Maybe Double
@@ -147,6 +160,9 @@ newtype Filters = Filters
   }
   deriving (Show, Eq)
 
+filters :: Filters
+filters = Filters Nothing
+
 -- | Credential used for authentication.
 --
 -- NOTE: 'credentialPrincipal' is used for authenticating the framework with
@@ -159,6 +175,9 @@ data Credential = Credential
   }
   deriving (Show, Eq)
 
+credential :: ByteString -> Credential
+credential p = Credential p Nothing
+
 -- | Describes a master. This will probably have more fields in the
 -- future which might be used, for example, to link a framework webui
 -- to a master webui.
@@ -170,6 +189,9 @@ data MasterInfo = MasterInfo
   , masterInfoHostname :: Maybe ByteString
   }
   deriving (Show, Eq)
+
+masterInfo :: ByteString -> Word32 -> Word32 -> MasterInfo
+masterInfo id ip p = MasterInfo id ip p Nothing Nothing
 
 -- | Describes a slave. Note that the 'slaveInfoSlaveID' field is only available after
 -- a slave is registered with the master, and is made available here
@@ -185,6 +207,9 @@ data SlaveInfo = SlaveInfo
   , slaveInfoCheckpoint :: Maybe Bool
   }
   deriving (Show, Eq)
+
+slaveInfo :: ByteString -> [Resource] -> [(ByteString, Value)] -> SlaveInfo
+slaveInfo hn rs as = SlaveInfo hn Nothing rs as Nothing Nothing
 
 data Value
   = Scalar Double
@@ -205,6 +230,9 @@ data Resource = Resource
   , resourceRole  :: Maybe ByteString
   }
   deriving (Show, Eq)
+
+resource :: ByteString -> Value -> Resource
+resource n v = Resource n v Nothing
 
 -- | Describes the current status of a task.
 data TaskStatus = TaskStatus
