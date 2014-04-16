@@ -111,49 +111,49 @@ void destroyContainerID(ContainerIDPtr p)
 }
 
 FrameworkInfoPtr toFrameworkInfo(char* user,
-	int userLen,
-	char* name,
-	int nameLen,
-	FrameworkIDPtr* frameworkID,
-	double* failoverTimeout,
-	bool* checkpoint,
-	char* role,
-	int roleLen,
-	char* hostname,
-	int hostLen)
+				 int userLen,
+				 char* name,
+				 int nameLen,
+				 FrameworkIDPtr* frameworkID,
+				 double* failoverTimeout,
+				 bool* checkpoint,
+				 char* role,
+				 int roleLen)
+//	char* hostname,
+// int hostLen)
 {
-	FrameworkInfoPtr info = new FrameworkInfo();
-	info->set_user(user, userLen);
-	info->set_name(name, nameLen);
-	if (frameworkID != NULL)
-		info->mutable_id()->MergeFrom(**frameworkID);
-	if (failoverTimeout != NULL)
-		info->set_failover_timeout(*failoverTimeout);
-	if (checkpoint != NULL)
-	{
-		info->set_checkpoint(*checkpoint);
-	}
-	if (role != NULL)
-		info->set_role(role, roleLen);
-	if (hostname != NULL)
-		info->set_hostname(hostname, hostLen);
-	return info;
+  FrameworkInfoPtr info = new FrameworkInfo();
+  info->set_user(user, userLen);
+  info->set_name(name, nameLen);
+  if (frameworkID != NULL)
+    info->mutable_id()->MergeFrom(**frameworkID);
+  if (failoverTimeout != NULL)
+    info->set_failover_timeout(*failoverTimeout);
+  if (checkpoint != NULL)
+    {
+      info->set_checkpoint(*checkpoint);
+    }
+  if (role != NULL)
+    info->set_role(role, roleLen);
+  // if (hostname != NULL)
+  //  info->set_hostname(hostname, hostLen);
+  return info;
 }
 
 void fromFrameworkInfo(FrameworkInfoPtr info,
-	char** user,
-	int* userLen,
-	char** name,
-	int* nameLen,
-	FrameworkIDPtr* frameworkID,
-	bool* failoverSet,
-	double* failoverTimeout,
-	bool* checkpointSet,
-	bool* checkpoint,
-	char** role,
-	int* roleLen,
-	char** hostname,
-	int* hostLen)
+		       char** user,
+		       int* userLen,
+		       char** name,
+		       int* nameLen,
+		       FrameworkIDPtr* frameworkID,
+		       bool* failoverSet,
+		       double* failoverTimeout,
+		       bool* checkpointSet,
+		       bool* checkpoint,
+		       char** role,
+		       int* roleLen)
+		       // char** hostname,
+		       // int* hostLen)
 {
 	*failoverSet = false;
 	*checkpointSet = false;
@@ -187,12 +187,14 @@ void fromFrameworkInfo(FrameworkInfoPtr info,
 		*role = (char*) r.data();
 		*roleLen = r.size();
 	}
-	if (info->has_hostname())
+	/*
+       	if (info->has_hostname())
 	{
 		const std::string h = info->hostname();
 		*hostname = (char*) h.data();
 		*hostLen = h.size();
 	}
+	*/
 }
 
 void destroyFrameworkInfo(FrameworkInfoPtr info)

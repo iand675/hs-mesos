@@ -68,30 +68,30 @@ extern "C" {
 
 	// **********************************************************************
 	extern FrameworkInfoPtr toFrameworkInfo(char* user,
-		int userLen,
-		char* name,
-		int nameLen,
-		FrameworkIDPtr* frameworkID,
-		double* failoverTimeout,
-		bool* checkpoint,
-		char* role,
-		int roleLen,
-		char* hostname,
-		int hostLen);
+						int userLen,
+						char* name,
+						int nameLen,
+						FrameworkIDPtr* frameworkID,
+						double* failoverTimeout,
+						bool* checkpoint,
+						char* role,
+						int roleLen);
+						// char* hostname,
+						// int hostLen);
 	extern void fromFrameworkInfo(FrameworkInfoPtr info,
-		char** user,
-		int* userLen,
-		char** name,
-		int* nameLen,
-		FrameworkIDPtr* frameworkID,
-		bool* failoverSet,
-		double* failoverTimeout,
-		bool* checkpointSet,
-		bool* checkpoint,
-		char** role,
-		int* roleLen,
-		char** hostname,
-		int* hostLen);
+				      char** user,
+				      int* userLen,
+				      char** name,
+				      int* nameLen,
+				      FrameworkIDPtr* frameworkID,
+				      bool* failoverSet,
+				      double* failoverTimeout,
+				      bool* checkpointSet,
+				      bool* checkpoint,
+				      char** role,
+				      int* roleLen);
+				      // char** hostname,
+				      // int* hostLen);
 	extern void destroyFrameworkInfo(FrameworkInfoPtr info);
 
 	// **********************************************************************

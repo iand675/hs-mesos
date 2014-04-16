@@ -71,7 +71,7 @@ instance Arbitrary FrameworkInfo where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
-    <*> arbitrary
+    -- <*> arbitrary
 instance Arbitrary CommandURI where
   arbitrary = CommandURI <$> arbitrary <*> arbitrary
 instance Arbitrary CommandInfo where

@@ -131,12 +131,12 @@ data FrameworkInfo = FrameworkInfo
   , frameworkFailoverTimeout :: Maybe Double
   , frameworkCheckpoint      :: Maybe Bool
   , frameworkRole            :: Maybe ByteString
-  , frameworkHostname        :: Maybe ByteString
+--  , frameworkHostname        :: Maybe ByteString
   }
   deriving (Show, Eq)
 
 frameworkInfo :: ByteString -> ByteString -> FrameworkInfo
-frameworkInfo u n = FrameworkInfo u n Nothing Nothing Nothing Nothing Nothing
+frameworkInfo u n = FrameworkInfo u n Nothing Nothing Nothing Nothing
 
 data CommandURI = CommandURI
   { commandURIValue      :: ByteString

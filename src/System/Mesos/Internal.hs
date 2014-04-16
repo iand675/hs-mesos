@@ -299,8 +299,8 @@ foreign import ccall "ext/types.h toFrameworkInfo" c_toFrameworkInfo
   -> Ptr CBool
   -> Ptr CChar
   -> CInt
-  -> Ptr CChar
-  -> CInt
+--  -> Ptr CChar
+--  -> CInt
   -> IO FrameworkInfoPtr
 foreign import ccall "ext/types.h fromFrameworkInfo" c_fromFrameworkInfo
   :: FrameworkInfoPtr
@@ -315,8 +315,8 @@ foreign import ccall "ext/types.h fromFrameworkInfo" c_fromFrameworkInfo
   -> Ptr CBool
   -> Ptr (Ptr CChar)
   -> Ptr CInt
-  -> Ptr (Ptr CChar)
-  -> Ptr CInt
+--  -> Ptr (Ptr CChar)
+--  -> Ptr CInt
   -> IO ()
 foreign import ccall "ext/types.h destroyFrameworkInfo" c_destroyFrameworkInfo
   :: FrameworkInfoPtr
@@ -329,11 +329,11 @@ instance CPPValue FrameworkInfo where
           Just r -> unsafeUseAsCStringLen r f
     in
     roleFun $ \(rp, rl) ->
-    let hostnameFun f = case frameworkHostname fi of
-          Nothing -> f (nullPtr, 0)
-          Just r -> unsafeUseAsCStringLen r f
-    in
-    hostnameFun $ \(hp, hl) ->
+--    let hostnameFun f = case frameworkHostname fi of
+--          Nothing -> f (nullPtr, 0)
+--          Just r -> unsafeUseAsCStringLen r f
+--    in
+--    hostnameFun $ \(hp, hl) ->
     alloca $ \fp ->
     alloca $ \cp -> do
       fp' <- maybe (return nullPtr) (\x -> poke fp (CDouble x) >> return fp) $ frameworkFailoverTimeout fi
@@ -355,8 +355,8 @@ instance CPPValue FrameworkInfo where
         cp'
         rp
         (fromIntegral rl)
-        hp
-        (fromIntegral hl)
+--        hp
+--        (fromIntegral hl)
   unmarshal fp = alloca $ \up ->
     alloca $ \ul ->
     alloca $ \np ->
@@ -367,9 +367,9 @@ instance CPPValue FrameworkInfo where
     alloca $ \cps ->
     alloca $ \cp ->
     alloca $ \rp ->
-    alloca $ \rl ->
-    alloca $ \hp ->
-    alloca $ \hl -> do
+    alloca $ \rl -> do
+--    alloca $ \hp ->
+--    alloca $ \hl -> do
       poke up nullPtr
       poke ul 0
       poke np nullPtr
@@ -377,9 +377,9 @@ instance CPPValue FrameworkInfo where
       poke idp nullPtr
       poke rp nullPtr
       poke rl 0
-      poke hp nullPtr
-      poke hl 0
-      c_fromFrameworkInfo fp up ul np nl idp tps tp cps cp rp rl hp hl
+--      poke hp nullPtr
+--      poke hl 0
+      c_fromFrameworkInfo fp up ul np nl idp tps tp cps cp rp rl -- hp hl
       ulv <- peek ul
       ubs <- peek up >>= \upi -> packCStringLen (upi, fromIntegral ulv)
       nlv <- peek nl
@@ -392,11 +392,11 @@ instance CPPValue FrameworkInfo where
       mt <- fmap (fmap (\(CDouble d) -> d)) $ peekMaybePrim tp tps
       mc <- fmap (fmap (== 1)) $ peekMaybePrim cp cps
       mr <- peekMaybeBS rp rl
-      mh <- peekMaybeBS hp hl
-      return $ FrameworkInfo ubs nbs mid mt mc mr mh
+--      mh <- peekMaybeBS hp hl
+      return $ FrameworkInfo ubs nbs mid mt mc mr
   destroy = c_destroyFrameworkInfo
-  equalExceptDefaults (FrameworkInfo u n i ft cp r h) (FrameworkInfo u' n' i' ft' cp' r' h') =
-    u == u' && n == n' && i == i' && defEq 0 ft ft' && defEq False cp cp' && defEq "*" r r' && h == h'
+  equalExceptDefaults (FrameworkInfo u n i ft cp r) (FrameworkInfo u' n' i' ft' cp' r') =
+    u == u' && n == n' && i == i' && defEq 0 ft ft' && defEq False cp cp' && defEq "*" r r' -- && h == h'
 
 -- *****************************************************************************************************************
 -- 
