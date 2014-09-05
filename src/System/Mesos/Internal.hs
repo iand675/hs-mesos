@@ -1708,10 +1708,10 @@ foreign import ccall "ext/executor.h stopExecutorDriver" c_stopExecutorDriver
 foreign import ccall "ext/executor.h abortExecutorDriver" c_abortExecutorDriver
   :: ExecutorDriverPtr
   -> IO CInt
-foreign import ccall "ext/executor.h joinExecutorDriver" c_joinExecutorDriver
+foreign import ccall safe "ext/executor.h joinExecutorDriver" c_joinExecutorDriver
   :: ExecutorDriverPtr
   -> IO CInt
-foreign import ccall "ext/executor.h runExecutorDriver" c_runExecutorDriver
+foreign import ccall safe "ext/executor.h runExecutorDriver" c_runExecutorDriver
   :: ExecutorDriverPtr
   -> IO CInt
 foreign import ccall "ext/executor.h sendExecutorDriverStatusUpdate" c_sendExecutorDriverStatusUpdate
