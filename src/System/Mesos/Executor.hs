@@ -35,14 +35,17 @@ module System.Mesos.Executor (
   sendStatusUpdate,
   sendFrameworkMessage
 ) where
-import Data.ByteString (ByteString, packCStringLen)
-import Data.ByteString.Unsafe (unsafeUseAsCStringLen)
-import Foreign.C
-import Foreign.Marshal.Safe
-import Foreign.Ptr
-import Foreign.Storable
-import System.Mesos.Internal
-import System.Mesos.Types
+import           Control.Monad.Managed
+import           Data.ByteString           (ByteString, packCStringLen)
+import           Data.ByteString.Unsafe    (unsafeUseAsCStringLen)
+import           Foreign.C
+import           Foreign.Marshal.Safe      hiding (with)
+import           Foreign.Ptr
+import           Foreign.Storable
+import           System.Mesos.Internal
+import           System.Mesos.Raw
+import           System.Mesos.Raw.Executor
+import           System.Mesos.Types
 
 withExecutor :: ToExecutor a => a -> (Executor -> IO b) -> IO b
 withExecutor e f = do
@@ -118,21 +121,21 @@ class ToExecutor a where
 
 createExecutor :: ToExecutor a => a -> IO Executor
 createExecutor c = do
-  registeredFun <- wrapExecutorRegistered $ \edp eip fip sip -> do
+  registeredFun <- wrapExecutorRegistered $ \edp eip fip sip -> runManaged $ do
     ei <- unmarshal eip
     fi <- unmarshal fip
     si <- unmarshal sip
-    registered c (ExecutorDriver edp) ei fi si
-  reRegisteredFun <- wrapExecutorReRegistered $ \edp sip -> do
+    liftIO $ registered c (ExecutorDriver edp) ei fi si
+  reRegisteredFun <- wrapExecutorReRegistered $ \edp sip -> runManaged $ do
     si <- unmarshal sip
-    reRegistered c (ExecutorDriver edp) si
+    liftIO $ reRegistered c (ExecutorDriver edp) si
   disconnectedFun <- wrapExecutorDisconnected $ \edp -> disconnected c (ExecutorDriver edp)
-  launchTaskFun <- wrapExecutorLaunchTask $ \edp tip -> do
+  launchTaskFun <- wrapExecutorLaunchTask $ \edp tip -> runManaged $ do
     ti <- unmarshal tip
-    launchTask c (ExecutorDriver edp) ti
-  taskKilledFun <- wrapExecutorTaskKilled $ \edp tip -> do
+    liftIO $ launchTask c (ExecutorDriver edp) ti
+  taskKilledFun <- wrapExecutorTaskKilled $ \edp tip -> runManaged $ do
     ti <- unmarshal tip
-    taskKilled c (ExecutorDriver edp) ti
+    liftIO $ taskKilled c (ExecutorDriver edp) ti
   frameworkMessageFun <- wrapExecutorFrameworkMessage $ \edp mcp mlp -> do
     bs <- packCStringLen (mcp, fromIntegral mlp)
     frameworkMessage c (ExecutorDriver edp) bs
@@ -197,16 +200,14 @@ run = fmap toStatus . c_runExecutorDriver . fromExecutorDriver
  -- will be sent). See @System.Mesos.Scheduler.statusUpdate@ for more information
  -- about status update acknowledgements.
 sendStatusUpdate :: ExecutorDriver -> TaskStatus -> IO Status
-sendStatusUpdate (ExecutorDriver d) s = do
-  sp <- marshal s
+sendStatusUpdate (ExecutorDriver d) s = with (cppValue s) $ \sp -> do
   result <- c_sendExecutorDriverStatusUpdate d sp
-  destroy sp
   return $ toStatus result
 
 -- | Sends a message to the framework scheduler. These messages are
 -- best effort; do not expect a framework message to be
 -- retransmitted in any reliable fashion.
 sendFrameworkMessage :: ExecutorDriver -> ByteString -> IO Status
-sendFrameworkMessage (ExecutorDriver d) s = unsafeUseAsCStringLen s $ \(sp, sl) -> do
+sendFrameworkMessage (ExecutorDriver d) s = with (cstring s) $ \(sp, sl) -> do
   result <- c_sendExecutorDriverFrameworkMessage d sp (fromIntegral sl)
   return $ toStatus result

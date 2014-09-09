@@ -6,7 +6,7 @@
 -- Maintainer  : ian@iankduncan.com
 -- Stability   : unstable
 -- Portability : non-portable
--- 
+--
 -- Mesos scheduler interface and scheduler driver. A scheduler is used
 -- to interact with Mesos in order run distributed computations.
 
@@ -37,13 +37,15 @@ module System.Mesos.Scheduler (
   createScheduler,
   destroyScheduler
 ) where
-import Data.ByteString (ByteString, packCStringLen)
-import Data.ByteString.Unsafe (unsafeUseAsCStringLen)
-import Foreign.C
-import Foreign.Ptr
-import Foreign.Marshal.Array
-import System.Mesos.Internal
-import System.Mesos.Types
+import           Control.Monad.Managed
+import           Data.ByteString            (ByteString, packCStringLen)
+import           Data.ByteString.Unsafe     (unsafeUseAsCStringLen)
+-- import           Foreign.C
+import           Foreign.Ptr
+import           System.Mesos.Internal      hiding (marshal)
+import           System.Mesos.Raw
+import           System.Mesos.Raw.Scheduler
+import           System.Mesos.Types
 
 -- | Callback interface to be implemented by frameworks'
 -- schedulers. Note that only one callback will be invoked at a time,
@@ -131,45 +133,45 @@ class ToScheduler a where
 
 createScheduler :: ToScheduler a => a -> IO Scheduler
 createScheduler s = do
-  registeredFun <- wrapSchedulerRegistered $ \sdp fp mp -> do
+  registeredFun <- wrapSchedulerRegistered $ \sdp fp mp -> runManaged $ do
     let sd = SchedulerDriver sdp
-    f <- unmarshal fp
-    m <- unmarshal mp
-    (registered s) sd f m
-  reRegisteredFun <- wrapSchedulerReRegistered $ \sdp mip -> do
+    f <- peekCPP fp
+    m <- peekCPP mp
+    liftIO $ (registered s) sd f m
+  reRegisteredFun <- wrapSchedulerReRegistered $ \sdp mip -> runManaged $ do
     let sd = SchedulerDriver sdp
     mi <- unmarshal mip
-    (reRegistered s) sd mi
-  disconnectedFun <- wrapSchedulerDisconnected $ \sdp -> do
+    liftIO $ (reRegistered s) sd mi
+  disconnectedFun <- wrapSchedulerDisconnected $ \sdp -> runManaged $ do
     let sd = SchedulerDriver sdp
-    (disconnected s) sd
-  resourceOffersFun <- wrapSchedulerResourceOffers $ \sdp os c -> do
+    liftIO $ (disconnected s) sd
+  resourceOffersFun <- wrapSchedulerResourceOffers $ \sdp os c -> runManaged $ do
     let sd = SchedulerDriver sdp
-    offers <- mapM unmarshal =<< peekArray (fromIntegral c) os
-    (resourceOffers s) sd offers
+    offers <- mapM unmarshal =<< peekArray' (os, fromIntegral c)
+    liftIO $ (resourceOffers s) sd offers
   offerRescindedFun <- wrapSchedulerOfferRescinded $ \sdp oidp -> do
     let sd = SchedulerDriver sdp
-    oid <- unmarshal oidp
-    (offerRescinded s) sd oid
-  statusUpdateFun <- wrapSchedulerStatusUpdate $ \sdp tsp -> do
+    with (unmarshal oidp) $ \oid ->
+      (offerRescinded s) sd oid
+  statusUpdateFun <- wrapSchedulerStatusUpdate $ \sdp tsp -> runManaged $ do
     let sd = SchedulerDriver sdp
     ts <- unmarshal tsp
-    (statusUpdate s) sd ts
-  frameworkMessageFun <- wrapSchedulerFrameworkMessage $ \sdp eip sip ptr c -> do
+    liftIO $ (statusUpdate s) sd ts
+  frameworkMessageFun <- wrapSchedulerFrameworkMessage $ \sdp eip sip ptr c -> runManaged $ do
     let sd = SchedulerDriver sdp
     ei <- unmarshal eip
     si <- unmarshal sip
-    bs <- packCStringLen (ptr, fromIntegral c)
-    (frameworkMessage s) sd ei si bs
-  slaveLostFun <- wrapSchedulerSlaveLost $ \sdp sip -> do
+    bs <- liftIO $ packCStringLen (ptr, c)
+    liftIO $ (frameworkMessage s) sd ei si bs
+  slaveLostFun <- wrapSchedulerSlaveLost $ \sdp sip -> runManaged $ do
     let sd = SchedulerDriver sdp
     si <- unmarshal sip
-    (slaveLost s) sd si
-  executorLostFun <- wrapSchedulerExecutorLost $ \sdp eip sip st -> do
+    liftIO $ (slaveLost s) sd si
+  executorLostFun <- wrapSchedulerExecutorLost $ \sdp eip sip st -> runManaged $ do
     let sd = SchedulerDriver sdp
     ei <- unmarshal eip
     si <- unmarshal sip
-    (executorLost s) sd ei si (toEnum $ fromIntegral st)
+    liftIO $ (executorLost s) sd ei si (toEnum $ fromIntegral st)
   errorFun <- wrapSchedulerError $ \sdp ptr c -> do
     let sd = SchedulerDriver sdp
     bs <- packCStringLen (ptr, fromIntegral c)
@@ -191,9 +193,6 @@ destroyScheduler s = do
   freeHaskellFunPtr $ rawSchedulerExecutorLost s
   freeHaskellFunPtr $ rawSchedulerError s
 
-excerciseMethods :: Scheduler -> IO ()
-excerciseMethods = c_exerciseMethods . schedulerImpl
-
 withDriver :: (SchedulerDriverPtr -> IO CInt) -> SchedulerDriver -> IO Status
 withDriver f (SchedulerDriver p) = fmap (toEnum . fromIntegral) $ f p
 
@@ -207,17 +206,12 @@ withSchedulerDriver s i h c f = do
   return result
 
 createDriver :: Scheduler -> FrameworkInfo -> ByteString -> Maybe Credential -> IO SchedulerDriver
-createDriver s i h mc = do
-  fiP <- marshal i
-  result <- unsafeUseAsCStringLen h $ \(hP, hLen) -> case mc of
-    Nothing -> c_createSchedulerDriver (schedulerImpl s) fiP hP (fromIntegral hLen)
-    Just c -> do
-      cP <- marshal c
-      result <- c_createSchedulerDriverWithCredentials (schedulerImpl s) fiP hP (fromIntegral hLen) cP
-      destroy cP
-      return result
-  destroy fiP
-  return $ SchedulerDriver result
+createDriver s i h mc = with (cppValue i) $ \fiP ->
+  with (cstring h) $ \(hp, hLen) ->
+    fmap SchedulerDriver $ case mc of
+                             Nothing -> c_createSchedulerDriver (schedulerImpl s) fiP hp (fromIntegral hLen)
+                             Just c -> with (cppValue c) $ \cp -> do
+                               c_createSchedulerDriverWithCredentials (schedulerImpl s) fiP hp (fromIntegral hLen) cp
 
 destroyDriver :: SchedulerDriver -> IO ()
 destroyDriver = c_destroySchedulerDriver . fromSchedulerDriver
@@ -266,7 +260,7 @@ run = withDriver c_runSchedulerDriver
 -- framework via the 'resourceOffers' callback.
 requestResources :: SchedulerDriver -> [Request] -> IO Status
 requestResources (SchedulerDriver p) rs = do
-  fmap (toEnum . fromIntegral) $ withMarshal rs $ \l rp -> do
+  fmap (toEnum . fromIntegral) $ with (mapM cppValue rs >>= arrayLen) $ \(rp, l) -> do
     c_requestResources p rp $ fromIntegral l
 
 -- | Launches the given set of tasks. Any resources remaining (i.e.,
@@ -278,12 +272,11 @@ requestResources (SchedulerDriver p) rs = do
 -- Invoking this function with an empty collection of tasks declines
 -- offers in their entirety (see 'declineOffer').
 launchTasks :: SchedulerDriver -> [OfferID] -> [TaskInfo] -> Filters -> IO Status
-launchTasks (SchedulerDriver p) os ts f = do
-  fp <- marshal f
-  res <- withMarshal os $ \ol op ->
-    withMarshal ts $ \tl tp -> c_launchTasks p op (fromIntegral ol) tp (fromIntegral tl) fp
-  destroy fp
-  return $ toEnum $ fromIntegral res
+launchTasks (SchedulerDriver p) os ts f = with (cppValue f) $ \fp ->
+  with (mapM cppValue os >>= arrayLen) $ \(op, ol) ->
+    with (mapM cppValue ts >>= arrayLen) $ \(tp, tl) -> do
+      res <- c_launchTasks p op (fromIntegral ol) tp (fromIntegral tl) fp
+      return $ toEnum $ fromIntegral res
 
 -- | Kills the specified task. Note that attempting to kill a task is
 -- currently not reliable. If, for example, a scheduler fails over
@@ -291,10 +284,8 @@ launchTasks (SchedulerDriver p) os ts f = do
 -- the future. Likewise, if unregistered / disconnected, the request
 -- will be dropped (these semantics may be changed in the future).
 killTask :: SchedulerDriver -> TaskID -> IO Status
-killTask (SchedulerDriver p) t = do
-  tid <- marshal t
+killTask (SchedulerDriver p) t = with (cppValue t) $ \tid -> do
   res <- c_killTask p tid
-  destroy tid
   return $ toEnum $ fromIntegral res
 
 -- | Declines an offer in its entirety and applies the specified
@@ -303,13 +294,10 @@ killTask (SchedulerDriver p) t = do
 -- necessary to do this within the 'resourceOffers'
 -- callback.
 declineOffer :: SchedulerDriver -> OfferID -> Filters -> IO Status
-declineOffer (SchedulerDriver p) o f = do
-  oid <- marshal o
-  fp <- marshal f
-  res <- c_declineOffer p oid fp
-  destroy oid
-  destroy fp
-  return $ toEnum $ fromIntegral res
+declineOffer (SchedulerDriver p) o f = with (cppValue o) $ \oid ->
+  with (cppValue f) $ \fp -> do
+    res <- c_declineOffer p oid fp
+    return $ toEnum $ fromIntegral res
 
 -- | Removes all filters previously set by the framework (via
 -- launchTasks()). This enables the framework to receive offers from
@@ -321,19 +309,15 @@ reviveOffers = withDriver c_reviveOffers
 -- messages are best effort; do not expect a framework message to be
 -- retransmitted in any reliable fashion.
 sendFrameworkMessage :: SchedulerDriver -> ExecutorID -> SlaveID -> ByteString -> IO Status
-sendFrameworkMessage (SchedulerDriver p) e s bs = do
-  ep <- marshal e
-  sp <- marshal s
-  res <- unsafeUseAsCStringLen bs $ \(strp, l) ->
-    c_sendFrameworkMessage p ep sp strp (fromIntegral l)
-  destroy ep
-  destroy sp
-  return $ toEnum $ fromIntegral res
+sendFrameworkMessage (SchedulerDriver p) e s bs = with (cppValue e) $ \ep -> with (cppValue s) $ \sp ->
+  with (cstring bs) $ \(strp, l) -> do
+    res <-c_sendFrameworkMessage p ep sp strp (fromIntegral l)
+    return $ toEnum $ fromIntegral res
 
 -- | Reconciliation of tasks causes the master to send status updates for tasks
 -- whose status differs from the status sent here.
 reconcileTasks :: SchedulerDriver -> [TaskStatus] -> IO Status
-reconcileTasks (SchedulerDriver p) ts = do
-  res <- withMarshal ts $ \l tp -> c_reconcileTasks p tp (fromIntegral l)
+reconcileTasks (SchedulerDriver p) ts = with (mapM cppValue ts >>= arrayLen) $ \(tp, l) -> do
+  res <- c_reconcileTasks p tp (fromIntegral l)
   return $ toEnum $ fromIntegral res
 

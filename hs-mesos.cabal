@@ -1,5 +1,5 @@
 name:                hs-mesos
-version:             0.19.0.0
+version:             0.20.0.0
 
 -- description:         
 license:             MIT
@@ -18,14 +18,83 @@ library
                        System.Mesos.Resources,
                        System.Mesos.Types,
                        System.Mesos.Internal,
-                       System.Mesos.TaskStatus
-
+                       System.Mesos.TaskStatus,
+                       System.Mesos.Raw,
+                       System.Mesos.Raw.Attribute,
+                       System.Mesos.Raw.CommandInfo,
+                       System.Mesos.Raw.CommandUri,
+                       System.Mesos.Raw.ContainerId,
+                       System.Mesos.Raw.ContainerInfo,
+                       System.Mesos.Raw.Credential,
+                       System.Mesos.Raw.Environment,
+                       System.Mesos.Raw.EnvironmentVariable,
+                       System.Mesos.Raw.Executor,
+                       System.Mesos.Raw.ExecutorId,
+                       System.Mesos.Raw.ExecutorInfo,
+                       System.Mesos.Raw.Filters,
+                       System.Mesos.Raw.FrameworkId,
+                       System.Mesos.Raw.FrameworkInfo,
+                       System.Mesos.Raw.HealthCheck,
+                       System.Mesos.Raw.MasterInfo,
+                       System.Mesos.Raw.Offer,
+                       System.Mesos.Raw.OfferId,
+                       System.Mesos.Raw.Parameter,
+                       System.Mesos.Raw.Parameters,
+                       System.Mesos.Raw.PerformanceStatistics,
+                       System.Mesos.Raw.Request,
+                       System.Mesos.Raw.Resource,
+                       System.Mesos.Raw.ResourceStatistics,
+                       System.Mesos.Raw.ResourceUsage,
+                       System.Mesos.Raw.Scheduler,
+                       System.Mesos.Raw.SlaveId,
+                       System.Mesos.Raw.SlaveInfo,
+                       System.Mesos.Raw.StdString,
+                       System.Mesos.Raw.TaskId,
+                       System.Mesos.Raw.TaskInfo,
+                       System.Mesos.Raw.TaskStatus,
+                       System.Mesos.Raw.Value,
+                       System.Mesos.Raw.Volume
   -- other-extensions:    
-  build-depends:       base >=4.7 && < 5, bytestring, lens
+  build-depends:       base >=4.7 && < 5, bytestring, lens, managed
   hs-source-dirs:      src
   default-language:    Haskell2010
   include-dirs:        ext, /usr/include, /usr/local/include/mesos
-  c-sources:           ext/types.cpp, ext/scheduler.cpp, ext/executor.cpp
+  c-sources:           ext/executor.cpp,
+                       ext/scheduler.cpp,
+                       ext/types/attribute.cpp,
+                       ext/types/command_info.cpp,
+                       ext/types/command_uri.cpp,
+                       ext/types/container_id.cpp,
+                       ext/types/container_info.cpp,
+                       ext/types/credential.cpp,
+                       ext/types/environment.cpp,
+                       ext/types/environment_variable.cpp,
+                       ext/types/executor_id.cpp,
+                       ext/types/executor_info.cpp,
+                       ext/types/filters.cpp,
+                       ext/types/framework_id.cpp,
+                       ext/types/framework_info.cpp,
+                       ext/types/health_check.cpp,
+                       ext/types/master_info.cpp,
+                       ext/types/offer.cpp,
+                       ext/types/offer_id.cpp,
+                       ext/types/parameter.cpp,
+                       ext/types/parameters.cpp,
+                       ext/types/performance_statistics.cpp,
+                       ext/types/range.cpp,
+                       ext/types/request.cpp,
+                       ext/types/resource.cpp,
+                       ext/types/resource_statistics.cpp,
+                       ext/types/resource_usage.cpp,
+                       ext/types/slave_id.cpp,
+                       ext/types/slave_info.cpp,
+                       ext/types/std_string.cpp,
+                       ext/types/task_id.cpp,
+                       ext/types/task_info.cpp,
+                       ext/types/task_status.cpp,
+                       ext/types/value.cpp,
+                       ext/types/volume.cpp
+
   extra-libraries:     mesos stdc++
   extra-lib-dirs:      /usr/local/lib
   cc-options:          -fPIC -std=c++11
@@ -35,7 +104,7 @@ test-suite test
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
   hs-source-dirs:      test
-  build-depends:       base, hs-mesos, QuickCheck, bytestring, lens
+  build-depends:       base, hs-mesos, QuickCheck, bytestring, lens, managed
   default-language:    Haskell2010
 
 executable test-executor

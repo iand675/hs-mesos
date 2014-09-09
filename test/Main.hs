@@ -1,53 +1,35 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Main where
-import Control.Applicative
-import qualified Data.ByteString as ByteString
-import Data.IORef
-import Foreign.C.Types
-import System.Mesos.Scheduler
-import System.Mesos.Types
-import System.Mesos.Internal
-import Test.QuickCheck
-import Test.QuickCheck.Arbitrary
-import Test.QuickCheck.Monadic
+import           Control.Applicative
+import           Control.Monad.Managed
+import qualified Data.ByteString              as ByteString
+import           Data.IORef
+import           Foreign.C.Types
+import           System.Mesos.Internal
+import           System.Mesos.Raw.Attribute
+import           System.Mesos.Raw.Environment
+import           System.Mesos.Raw.Parameter
+import           System.Mesos.Raw.Parameters
+import           System.Mesos.Scheduler
+import           System.Mesos.Types
+import           Test.QuickCheck
+import           Test.QuickCheck.Arbitrary
+import           Test.QuickCheck.Monadic
 
 markCalled r = modifyIORef r (+1)
 
+beforeAndAfter :: (Show a, CPPValue a) => a -> IO a
 beforeAndAfter x = do
   print x
-  p <- marshal x
-  x' <- unmarshal p
-  destroy p
+  x' <- with (cppValue x >>= unmarshal) return
   print x'
+  return x'
 
 main :: IO ()
-main = do
-  -- beforeAndAfter $ SlaveInfo {slaveInfoHostname = "\NUL\STX\ETX\EOT\EOT", slaveInfoPort = Just 2, slaveInfoResources = [Resource {resourceName = "\EOT\SOH\SOH\EOT\SOH", resourceValue = Text "", resourceRole = Just "\STX"},Resource {resourceName = "\NUL\NUL\SOH\EOT", resourceValue = Scalar 0.17900899705823084, resourceRole = Nothing},Resource {resourceName = "\NUL\ETX\ETX", resourceValue = Scalar 4.503865622328922, resourceRole = Just "\STX\ETX"}], slaveInfoAttributes = [("",Set ["\SOH\STX\ETX\NUL","\ETX\STX\ETX"]),("",Scalar (-2.1180957294956677)),("\ETX\ETX\ETX\NUL",Set ["\STX\STX\ETX","\ETX\EOT\ETX","\NUL\SOH\ETX","\STX\STX","\ETX\STX\ETX"]),("\ETX\SOH\STX\EOT\ETX",Text "\EOT\EOT\SOH\EOT")], slaveInfoSlaveID = Just (SlaveID {fromSlaveID = "\SOH\ETX\EOT"}), slaveInfoCheckpoint = Nothing}
-  testIDs
-  {-
-  ref <- newIORef 0
-  let called = markCalled ref
-  let config = SchedulerConfig
-                { schedulerRegistered       = \_ _ _ -> called
-                , schedulerReRegistered     = \_ _ -> called
-                , schedulerDisconnected     = \_ -> called
-                , schedulerResourceOffers   = \_ _ -> called
-                , schedulerOfferRescinded   = \_ _ -> called
-                , schedulerStatusUpdate     = \_ _ -> called
-                , schedulerFrameworkMessage = \_ _ _ _ -> called
-                , schedulerSlaveLost        = \_ _ -> called
-                , schedulerExecutorLost     = \_ _ _ _ -> called
-                , schedulerError            = \_ _ -> called
-                }
-  scheduler <- createScheduler config
-  excerciseMethods scheduler
-  destroyScheduler scheduler
-  count <- readIORef ref
-  putStrLn "should be called 10 times: "
-  print count
-  -}
+main = testIDs
 
 instance Arbitrary CUInt where
   arbitrary = CUInt <$> arbitrary
@@ -71,11 +53,21 @@ instance Arbitrary FrameworkInfo where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
-    -- <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
 instance Arbitrary CommandURI where
-  arbitrary = CommandURI <$> arbitrary <*> arbitrary
+  arbitrary = CommandURI <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary CommandValue where
+  arbitrary = oneof
+    [ ShellCommand <$> arbitrary
+    , RawCommand <$> arbitrary <*> arbitrary
+    ]
+
 instance Arbitrary CommandInfo where
-  arbitrary = CommandInfo <$> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = CommandInfo <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+
 instance Arbitrary ExecutorInfo where
   arbitrary = ExecutorInfo
     <$> arbitrary
@@ -85,6 +77,8 @@ instance Arbitrary ExecutorInfo where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+    <*> arbitrary
+
 instance Arbitrary MasterInfo where
   arbitrary = MasterInfo
     <$> arbitrary
@@ -92,6 +86,7 @@ instance Arbitrary MasterInfo where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+
 instance Arbitrary SlaveInfo where
   arbitrary = SlaveInfo
     <$> arbitrary
@@ -100,6 +95,7 @@ instance Arbitrary SlaveInfo where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+
 instance Arbitrary Value where
   arbitrary = oneof
     [ Scalar <$> arbitrary
@@ -108,10 +104,69 @@ instance Arbitrary Value where
     , Text <$> arbitrary
     ]
     where range = arbitrary >>= \l -> arbitrary >>= \r -> return (l, r)
+
 instance Arbitrary Attribute where
   arbitrary = Attribute <$> arbitrary <*> arbitrary
+
 instance Arbitrary Resource where
   arbitrary = Resource <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary PerformanceStatistics where
+  arbitrary = PerformanceStatistics
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
 instance Arbitrary ResourceStatistics where
   arbitrary = ResourceStatistics
     <$> arbitrary
@@ -126,6 +181,16 @@ instance Arbitrary ResourceStatistics where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
 instance Arbitrary ResourceUsage where
   arbitrary = ResourceUsage
     <$> arbitrary
@@ -134,10 +199,12 @@ instance Arbitrary ResourceUsage where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+
 instance Arbitrary Request where
   arbitrary = Request
     <$> arbitrary
     <*> arbitrary
+
 instance Arbitrary Offer where
   arbitrary = Offer
     <$> arbitrary
@@ -147,11 +214,40 @@ instance Arbitrary Offer where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+
 instance Arbitrary TaskExecutionInfo where
   arbitrary = oneof
     [ TaskCommand <$> arbitrary
     , TaskExecutor <$> arbitrary
     ]
+
+instance Arbitrary Mode where
+  arbitrary = oneof [pure ReadWrite, pure ReadOnly]
+
+instance Arbitrary Volume where
+  arbitrary = Volume <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary ContainerType where
+  arbitrary = Docker <$> arbitrary
+
+instance Arbitrary ContainerInfo where
+  arbitrary = ContainerInfo <$> arbitrary <*> arbitrary
+
+instance Arbitrary HealthCheckStrategy where
+  arbitrary = oneof
+    [ CommandCheck <$> arbitrary
+    , HTTPCheck <$> arbitrary <*> arbitrary <*> arbitrary
+    ]
+
+instance Arbitrary HealthCheck where
+  arbitrary = HealthCheck
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
 instance Arbitrary TaskInfo where
   arbitrary = TaskInfo
     <$> arbitrary
@@ -160,10 +256,23 @@ instance Arbitrary TaskInfo where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
 instance Arbitrary TaskState where
   arbitrary = elements [Staging, Starting, TaskRunning, Finished, Failed, Killed, Lost]
+
 instance Arbitrary TaskStatus where
-  arbitrary = TaskStatus <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = TaskStatus
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
 instance Arbitrary Filters where
   arbitrary = Filters <$> arbitrary
 instance Arbitrary Environment where
@@ -176,11 +285,7 @@ instance Arbitrary Credential where
   arbitrary = Credential <$> arbitrary <*> arbitrary
 
 idempotentMarshalling :: (Show a, Eq a, CPPValue a) => a -> IO a
-idempotentMarshalling x = do
-  p <- marshal x
-  u <- unmarshal p
-  destroy p
-  return u
+idempotentMarshalling x = with (cppValue x >>= unmarshal) return
 
 prop_idempotentMarshalling :: (Show a, Eq a, CPPValue a) => Gen a -> Property
 prop_idempotentMarshalling g = monadicIO $ forAllM g $ \x -> do
@@ -200,6 +305,16 @@ qcIM :: (Show a, Eq a, CPPValue a) => Gen a -> IO ()
 qcIM = quickCheck . prop_idempotentMarshalling
 
 testIDs = do
+  putStrLn "Testing ExecutorInfo"
+  qcIM (arbitrary :: Gen ExecutorInfo)
+  putStrLn "Testing TaskInfo"
+  qcIM (arbitrary :: Gen TaskInfo)
+  putStrLn "Testing Volume"
+  qcIM (arbitrary :: Gen Volume)
+  putStrLn "Testing HealthCheck"
+  qcIM (arbitrary :: Gen HealthCheck)
+  putStrLn "Testing ContainerInfo"
+  qcIM (arbitrary :: Gen ContainerInfo)
   putStrLn "Testing Value"
   qcIM (arbitrary :: Gen Value)
   putStrLn "Testing FrameworkID"
@@ -238,15 +353,12 @@ testIDs = do
   qcIM (arbitrary :: Gen Resource)
   putStrLn "Testing CommandInfo"
   qcIM (arbitrary :: Gen CommandInfo)
-  putStrLn "Testing ExecutorInfo"
-  qcIM (arbitrary :: Gen ExecutorInfo)
   putStrLn "Testing MasterInfo"
   qcIM (arbitrary :: Gen MasterInfo)
   putStrLn "Testing Request"
   qcIM (arbitrary :: Gen Request)
   putStrLn "Testing Offer"
   qcIM (arbitrary :: Gen Offer)
-  putStrLn "Testing TaskInfo"
-  qcIM (arbitrary :: Gen TaskInfo)
   putStrLn "Testing SlaveInfo"
   qcIM (arbitrary :: Gen SlaveInfo)
+
