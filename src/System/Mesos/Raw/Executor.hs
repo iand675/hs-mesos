@@ -12,6 +12,7 @@ import           System.Mesos.Raw.TaskStatus
 
 type ExecutorPtr = Ptr Executor
 
+-- | A data structure of the underlying executor & the callbacks that are triggered via the Mesos C++ API.
 data Executor = Executor
   { executorImpl                :: Ptr Executor
   , rawExecutorRegistered       :: FunPtr RawExecutorRegistered
@@ -26,6 +27,7 @@ data Executor = Executor
 
 type ExecutorDriverPtr = Ptr ExecutorDriver
 
+-- | A handle that allows an Executor to trigger lifecycle & status update events (e.g. starting & stopping the executor and sending messages to the Scheduler that invoked the executor).
 newtype ExecutorDriver = ExecutorDriver { fromExecutorDriver :: ExecutorDriverPtr }
 
 type RawExecutorRegistered = ExecutorDriverPtr -> ExecutorInfoPtr -> FrameworkInfoPtr -> SlaveInfoPtr -> IO ()

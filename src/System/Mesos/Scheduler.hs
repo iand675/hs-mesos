@@ -196,7 +196,12 @@ destroyScheduler s = do
 withDriver :: (SchedulerDriverPtr -> IO CInt) -> SchedulerDriver -> IO Status
 withDriver f (SchedulerDriver p) = fmap (toEnum . fromIntegral) $ f p
 
-withSchedulerDriver :: ToScheduler a => a -> FrameworkInfo -> ByteString -> Maybe Credential -> (SchedulerDriver -> IO b) -> IO b
+withSchedulerDriver :: ToScheduler a => a
+                    -> FrameworkInfo
+                    -> ByteString -- ^ @ip:port@ of the master to connect to. For example: @"127.0.0.1:5050"@
+                    -> Maybe Credential
+                    -> (SchedulerDriver -> IO b)
+                    -> IO b
 withSchedulerDriver s i h c f = do
   scheduler <- createScheduler s
   driver <- createDriver scheduler i h c
@@ -228,7 +233,9 @@ start = withDriver c_startSchedulerDriver
 -- running (for some framework specific failover timeout) allowing the
 -- scheduler to reconnect (possibly in the same process, or from a
 -- different process, for example, on a different machine).
-stop :: SchedulerDriver -> Bool -> IO Status
+stop :: SchedulerDriver
+     -> Bool -- ^ should failover?
+     -> IO Status
 stop d f = withDriver (\p -> c_stopSchedulerDriver p fi) d
   where
     fi = if f then 1 else 0
@@ -238,26 +245,23 @@ stop d f = withDriver (\p -> c_stopSchedulerDriver p fi) d
 -- separated so that code can detect an aborted driver (i.e., via
 -- the return status of 'await', see below), and
 -- instantiate and start another driver if desired (from within the
--- same process). Note that 'stop()' is not automatically called
--- inside 'abort()'.
+-- same process). Note that 'stop' is not automatically called
+-- inside 'abort'.
 abort :: SchedulerDriver -> IO Status
 abort = withDriver c_abortSchedulerDriver
 
 -- | Waits for the driver to be stopped or aborted, possibly
--- _blocking_ the current thread indefinitely. The return status of
+-- *blocking the current thread indefinitely*. The return status of
 -- this function can be used to determine if the driver was aborted
--- (see mesos.proto for a description of Status).
+-- (see 'Status' for more information).
 await :: SchedulerDriver -> IO Status
 await = withDriver c_joinSchedulerDriver
 
--- | Starts and immediately 'await's (i.e., blocks on) the driver.
+-- | Starts and immediately 'await's (blocks on) the driver.
 run :: SchedulerDriver -> IO Status
 run = withDriver c_runSchedulerDriver
 
--- | Requests resources from Mesos (see mesos.proto for a description
--- of 'Request' and how, for example, to request resources
--- from specific slaves). Any resources available are asynchronously offered to the
--- framework via the 'resourceOffers' callback.
+-- | Requests resources from Mesos. Any resources available are asynchronously offered to the framework via the 'resourceOffers' callback.
 requestResources :: SchedulerDriver -> [Request] -> IO Status
 requestResources (SchedulerDriver p) rs = do
   fmap (toEnum . fromIntegral) $ with (mapM cppValue rs >>= arrayLen) $ \(rp, l) -> do
@@ -266,7 +270,8 @@ requestResources (SchedulerDriver p) rs = do
 -- | Launches the given set of tasks. Any resources remaining (i.e.,
 -- not used by the tasks or their executors) will be considered
 -- declined. The specified filters are applied on all unused
--- resources (see mesos.proto for a description of Filters).
+-- resources (see 'Filters' for more information).
+--
 -- Available resources are aggregated when mutiple offers are
 -- provided. Note that all offers must belong to the same slave.
 -- Invoking this function with an empty collection of tasks declines
@@ -289,8 +294,7 @@ killTask (SchedulerDriver p) t = with (cppValue t) $ \tid -> do
   return $ toEnum $ fromIntegral res
 
 -- | Declines an offer in its entirety and applies the specified
--- filters on the resources (see mesos.proto for a description of
--- Filters). Note that this can be done at any time, it is not
+-- filters on the resources (see 'Filters'). Note that this can be done at any time, it is not
 -- necessary to do this within the 'resourceOffers'
 -- callback.
 declineOffer :: SchedulerDriver -> OfferID -> Filters -> IO Status
@@ -300,7 +304,7 @@ declineOffer (SchedulerDriver p) o f = with (cppValue o) $ \oid ->
     return $ toEnum $ fromIntegral res
 
 -- | Removes all filters previously set by the framework (via
--- launchTasks()). This enables the framework to receive offers from
+-- 'launchTasks'). This enables the framework to receive offers from
 -- those filtered slaves.
 reviveOffers :: SchedulerDriver -> IO Status
 reviveOffers = withDriver c_reviveOffers

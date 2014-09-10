@@ -1,7 +1,11 @@
 name:                hs-mesos
 version:             0.20.0.0
 
--- description:         
+description:         Bindings to the Apache Mesos platform.
+                     .
+                     <http://mesos.apache.org/ Apache Mesos> is a cluster manager that simplifies the complexity of running applications on a shared pool of servers.
+                     .
+                     Note that this package currently requires 'libmesos' to be installed on your development system in order to build.
 license:             MIT
 license-file:        LICENSE
 author:              Ian Duncan

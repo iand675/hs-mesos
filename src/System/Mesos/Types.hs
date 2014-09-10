@@ -1,47 +1,59 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module System.Mesos.Types (
+  -- * Core Framework & Executor types
+  -- ** Masters & Slaves
+  MasterInfo(..),
+  masterInfo,
+  SlaveInfo(..),
+  slaveInfo,
+  -- ** Frameworks & Executors
+  ExecutorInfo(..),
+  executorInfo,
+  FrameworkInfo(..),
+  frameworkInfo,
+  -- ** Resource allocation
+  Offer(..),
+  Request(..),
+  Filters(..),
+  filters,
+  -- ** Launching Tasks
+  TaskInfo(..),
+  TaskExecutionInfo(..),
+  CommandInfo(..),
+  CommandURI(..),
+  commandURI,
+  CommandValue (..),
+  Value(..),
+  Resource(..),
+  resource,
+  -- ** Task & Executor Status Updates
   Status(..),
+  TaskStatus(..),
+  TaskState(..),
+  isTerminal,
+  -- ** Identifiers
   FrameworkID(..),
   SlaveID(..),
   OfferID(..),
   TaskID(..),
   ExecutorID(..),
   ContainerID(..),
-  FrameworkInfo(..),
-  frameworkInfo,
-  CommandURI(..),
-  commandURI,
-  CommandValue (..),
-  CommandInfo(..),
-  ExecutorInfo(..),
-  executorInfo,
-  MasterInfo(..),
-  masterInfo,
-  SlaveInfo(..),
-  slaveInfo,
-  Value(..),
-  Resource(..),
-  resource,
-  ResourceStatistics(..),
-  ResourceUsage(..),
-  Request(..),
-  PerformanceStatistics(..),
-  Offer(..),
-  TaskInfo(..),
-  TaskExecutionInfo(..),
-  TaskState(..),
-  isTerminal,
-  TaskStatus(..),
-  Filters(..),
-  filters,
-  Credential(..),
-  credential,
-  HealthCheck (..),
-  HealthCheckStrategy (..),
+  -- ** Containerization Support
   ContainerInfo (..),
   Volume (..),
   Mode (..),
-  ContainerType (..)
+  ContainerType (..),
+  -- ** Health Checks
+  HealthCheck (..),
+  HealthCheckStrategy (..),
+  -- ** Resource Usage & Performance Statistics
+  ResourceStatistics(..),
+  ResourceUsage(..),
+  PerformanceStatistics(..),
+  -- ** Task Status
+  -- ** Credentials & ACLs
+  Credential(..),
+  credential
 ) where
 import           Data.ByteString (ByteString)
 import           Data.String
@@ -85,7 +97,10 @@ instance Enum TaskState where
   toEnum 4 = Killed
   toEnum 5 = Lost
   toEnum 6 = Staging
+  toEnum _ = error "Unsupported task state"
 
+-- | Indicates the state of the scheduler and executor driver
+-- after function calls.
 data Status = NotStarted | Running | Aborted | Stopped
   deriving (Show, Eq)
 
@@ -98,22 +113,38 @@ instance Enum Status where
   toEnum 2 = Running
   toEnum 3 = Aborted
   toEnum 4 = Stopped
+  toEnum _ = error "Unsupported status"
 
+-- | A unique ID assigned to a framework. A framework can reuse this ID in order to do failover.
 newtype FrameworkID = FrameworkID { fromFrameworkID :: ByteString }
   deriving (Show, Eq, IsString)
 
+-- | A unique ID assigned to an offer.
 newtype OfferID = OfferID { fromOfferID :: ByteString }
   deriving (Show, Eq, IsString)
 
+-- |  A unique ID assigned to a slave. Currently, a slave gets a new ID whenever it (re)registers with Mesos. Framework writers shouldn't assume any binding between a slave ID and and a hostname.
 newtype SlaveID = SlaveID { fromSlaveID :: ByteString }
   deriving (Show, Eq, IsString)
 
+-- |  A framework generated ID to distinguish a task. The ID must remain
+-- unique while the task is active. However, a framework can reuse an
+-- ID _only_ if a previous task with the same ID has reached a
+-- terminal state (e.g., 'Finished', 'Lost', 'Killed', etc.). See 'isTerminal' for a utility function to simplify checking task state.
 newtype TaskID = TaskID { fromTaskID :: ByteString }
   deriving (Show, Eq, IsString)
 
+-- |  A framework generated ID to distinguish an executor. Only one
+-- executor with the same ID can be active on the same slave at a
+-- time.
 newtype ExecutorID = ExecutorID { fromExecutorID :: ByteString }
   deriving (Show, Eq, IsString)
 
+
+-- |  A slave generated ID to distinguish a container. The ID must be unique
+-- between any active or completed containers on the slave. In particular,
+-- containers for different runs of the same (framework, executor) pair must be
+-- unique.
 newtype ContainerID = ContainerID { fromContainerID :: ByteString }
   deriving (Show, Eq, IsString)
 
@@ -150,21 +181,21 @@ frameworkInfo u n = FrameworkInfo u n Nothing Nothing Nothing Nothing Nothing No
 
 data HealthCheckStrategy
    = HTTPCheck
-     { httpCheckPort     :: !Word32
-     , httpCheckPath     :: !(Maybe ByteString)
-     , httpCheckStatuses :: ![Word32] -- ^ Http status codes
+     { httpCheckPort     :: !Word32 -- ^ Port to send the HTTP request.
+     , httpCheckPath     :: !(Maybe ByteString) -- ^ HTTP request path. (defaults to @"/"@.
+     , httpCheckStatuses :: ![Word32] -- ^ Expected response statuses. Not specifying any statuses implies that any returned status is acceptable.
      }
    | CommandCheck
-     { commandCheckCommand :: !CommandInfo
+     { commandCheckCommand :: !CommandInfo -- ^ Command health check.
      } deriving (Show, Eq)
 
 data HealthCheck = HealthCheck
   { healthCheckStrategy            :: !HealthCheckStrategy
-  , healthCheckDelaySeconds        :: !(Maybe Double)
-  , healthCheckIntervalSeconds     :: !(Maybe Double)
-  , healthCheckTimeoutSeconds      :: !(Maybe Double)
-  , healthCheckConsecutiveFailures :: !(Maybe Word32)
-  , healthCheckGracePeriodSeconds  :: !(Maybe Double)
+  , healthCheckDelaySeconds        :: !(Maybe Double) -- ^ Amount of time to wait until starting the health checks.
+  , healthCheckIntervalSeconds     :: !(Maybe Double) -- ^ Interval between health checks.
+  , healthCheckTimeoutSeconds      :: !(Maybe Double) -- ^ Amount of time to wait for the health check to complete.
+  , healthCheckConsecutiveFailures :: !(Maybe Word32) -- ^ Number of consecutive failures until considered unhealthy.
+  , healthCheckGracePeriodSeconds  :: !(Maybe Double) -- ^ Amount of time to allow failed health checks since launch.
   } deriving (Show, Eq)
 
 -- | Describes a command, executed via:
@@ -183,6 +214,10 @@ data CommandInfo = CommandInfo
   , commandValue       :: !CommandValue
   -- TODO: Existing field in 0.20, but doesn't actually work
   -- , commandContainer   :: !(Maybe ContainerInfo)
+
+  -- | Enables executor and tasks to run as a specific user. If the user
+  -- field is present both in 'FrameworkInfo' and here, the 'CommandInfo'
+  -- user value takes precedence.
   , commandUser        :: !(Maybe ByteString)
   }
   deriving (Show, Eq)
@@ -217,7 +252,7 @@ data ExecutorInfo = ExecutorInfo
   , executorInfoCommandInfo   :: !CommandInfo
   , executorInfoContainerInfo :: !(Maybe ContainerInfo)
   -- ^ Executor provided with a container will launch the container
-  -- with the executor's CommandInfo and we expect the container to
+  -- with the executor's 'CommandInfo' and we expect the container to
   -- act as a Mesos executor.
   , executorInfoResources     :: ![Resource]
   , executorName              :: !(Maybe ByteString)
@@ -237,8 +272,8 @@ executorInfo :: ExecutorID -> FrameworkID -> CommandInfo -> [Resource] -> Execut
 executorInfo eid fid ci rs = ExecutorInfo eid fid ci Nothing rs Nothing Nothing Nothing
 
 -- | Describes a master. This will probably have more fields in the
--- future which might be used, for example, to link a framework webui
--- to a master webui.
+-- future which might be used, for example, to link a framework web UI
+-- to a master web UI.
 data MasterInfo = MasterInfo
   { masterInfoID       :: !ByteString
   , masterInfoIP       :: !Word32
@@ -314,13 +349,21 @@ resource n v = Resource n v Nothing
 data ResourceStatistics = ResourceStatistics
   { resourceStatisticsTimestamp          :: !Double
   , resourceStatisticsCPUsUserTimeSecs   :: !(Maybe Double)
+  -- ^ Total CPU time spent in user mode
   , resourceStatisticsCPUsSystemTimeSecs :: !(Maybe Double)
+  -- ^ Total CPU time spent in kernel mode.
   , resourceCPUsLimit                    :: !Double
+  -- ^ Number of CPUs allocated.
   , resourceCPUsPeriods                  :: !(Maybe Word32)
+  -- ^ cpu.stat on process throttling (for contention issues).
   , resourceCPUsThrottled                :: !(Maybe Word32)
+  -- ^ cpu.stat on process throttling (for contention issues).
   , resourceCPUsThrottledTimeSecs        :: !(Maybe Double)
+  -- ^ cpu.stat on process throttling (for contention issues).
   , resourceMemoryResidentSetSize        :: !(Maybe Word64)
+  -- ^ Resident set size
   , resourceMemoryLimitBytes             :: !(Maybe Word64)
+  -- ^ Amount of memory resources allocated.
   , resourceMemoryFileBytes              :: !(Maybe Word64)
   , resourceMemoryAnonymousBytes         :: !(Maybe Word64)
   , resourceMemoryMappedFileBytes        :: !(Maybe Word64)
@@ -336,13 +379,21 @@ data ResourceStatistics = ResourceStatistics
   }
   deriving (Show, Eq)
 
+-- | Describes a snapshot of the resource usage for an executor.
+--
+-- Resource usage is for an executor. For tasks launched with
+-- an explicit executor, the executor id is provided. For tasks
+-- launched without an executor, our internal executor will be
+-- used. In this case, we provide the task id here instead, in
+-- order to make this message easier for schedulers to work with.
 data ResourceUsage = ResourceUsage
   { resourceUsageSlaveID      :: !SlaveID
   , resourceUsageFrameworkID  :: !FrameworkID
-  , resourceUsageExecutorID   :: !(Maybe ExecutorID)
-  , resourceUsageExecutorName :: !(Maybe ByteString)
-  , resourceUsageTaskID       :: !(Maybe TaskID)
+  , resourceUsageExecutorID   :: !(Maybe ExecutorID) -- ^ If present, this executor was explicitly specified.
+  , resourceUsageExecutorName :: !(Maybe ByteString) -- ^ If present, this executor was explicitly specified.
+  , resourceUsageTaskID       :: !(Maybe TaskID) -- ^ If present, this task did not have an executor.
   , resourceUsageStatistics   :: !(Maybe ResourceStatistics)
+  -- ^  If missing, the isolation module cannot provide resource usage.
   }
   deriving (Show, Eq)
 
@@ -409,11 +460,9 @@ data PerformanceStatistics = PerformanceStatistics
   } deriving (Show, Eq)
 
 -- | Describes a request for resources that can be used by a framework
--- to proactively influence the allocator.  If 'requestSlaveID' is provided
--- then this request is assumed to only apply to resources on that
--- slave.
+-- to proactively influence the allocator.
 data Request = Request
-  { requestSlaveID :: !(Maybe SlaveID)
+  { requestSlaveID :: !(Maybe SlaveID) -- ^ If value is provided, then this request is assumed to only apply to resources on the given slave.
   , reqResources   :: ![Resource]
   }
   deriving (Show, Eq)
@@ -518,7 +567,8 @@ data RateLimits = RateLimits
   , rateLimitsAggregateDefaultCapacity :: !(Maybe Double)
   } deriving (Show, Eq)
 
-data Mode = ReadWrite | ReadOnly
+data Mode = ReadWrite -- ^ Mount the volume in R/W mode
+          | ReadOnly  -- ^ Mount the volume as read-only
   deriving (Show, Eq)
 
 instance Enum Mode where
@@ -526,6 +576,7 @@ instance Enum Mode where
   fromEnum ReadOnly = 2
   toEnum 1 = ReadWrite
   toEnum 2 = ReadOnly
+  toEnum _ = error "Unsupported volume mode"
 
 data Volume = Volume
   { volumeContainerPath :: !ByteString
@@ -534,7 +585,7 @@ data Volume = Volume
   } deriving (Show, Eq)
 
 data ContainerType = Docker { dockerImage :: ByteString }
-                   | Unknown Int
+                   | Unknown Int -- ^ Not technically a container type. Represents the 'type' enum field if we get a container type that isn't Docker (e.g. from Mesos releases > 0.20)
   deriving (Show, Eq)
 
 data ContainerInfo = ContainerInfo
