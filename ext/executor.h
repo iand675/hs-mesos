@@ -42,5 +42,5 @@ extern int abortExecutorDriver(ExecutorDriverPtr);
 extern int joinExecutorDriver(ExecutorDriverPtr);
 extern int runExecutorDriver(ExecutorDriverPtr);
 extern int sendExecutorDriverStatusUpdate(ExecutorDriverPtr, TaskStatusPtr);
-extern int sendExecutorDriverFrameworkMessage(ExecutorDriverPtr, int, char*);
+extern int sendExecutorDriverFrameworkMessage(ExecutorDriverPtr, char*, int);
 }

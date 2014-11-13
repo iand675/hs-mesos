@@ -146,7 +146,7 @@ int sendExecutorDriverStatusUpdate(ExecutorDriver* driver, TaskStatus* status)
 	return driver->sendStatusUpdate(*status);
 }
 
-int sendExecutorDriverFrameworkMessage(ExecutorDriver* driver, int stringLength, char* stringData)
+int sendExecutorDriverFrameworkMessage(ExecutorDriver* driver, char* stringData, int stringLength)
 {
 	std::string message(stringData, stringLength);
 	return driver->sendFrameworkMessage(message);
