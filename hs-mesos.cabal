@@ -102,13 +102,13 @@ library
   extra-libraries:     mesos stdc++
   extra-lib-dirs:      /usr/local/lib
   cc-options:          -fPIC -std=c++11
-  ghc-options:         -fPIC
+  ghc-options:         -fPIC -funbox-strict-fields
 
 test-suite test
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
   hs-source-dirs:      test
-  build-depends:       base, hs-mesos, QuickCheck, bytestring, lens, managed
+  build-depends:       base, hs-mesos, tasty, tasty-quickcheck, tasty-hunit, QuickCheck, bytestring, lens, managed
   default-language:    Haskell2010
 
 executable test-executor

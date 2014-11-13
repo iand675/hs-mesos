@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE StandaloneDeriving         #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 module Main where
 import           Control.Applicative
 import           Control.Monad.Managed
@@ -15,6 +15,9 @@ import           System.Mesos.Raw.Parameter
 import           System.Mesos.Raw.Parameters
 import           System.Mesos.Scheduler
 import           System.Mesos.Types
+import           Test.Tasty
+import qualified Test.Tasty.HUnit             as Unit
+import           Test.Tasty.QuickCheck
 import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary
 import           Test.QuickCheck.Monadic
@@ -29,7 +32,7 @@ beforeAndAfter x = do
   return x'
 
 main :: IO ()
-main = testIDs
+main = defaultMain $ testGroup "Mesos" [testIDs, executorTests, schedulerTests]
 
 instance Arbitrary CUInt where
   arbitrary = CUInt <$> arbitrary
@@ -301,64 +304,44 @@ prop_idempotentMarshalling g = monadicIO $ forAllM g $ \x -> do
         print res
       assert False
 
-qcIM :: (Show a, Eq a, CPPValue a) => Gen a -> IO ()
-qcIM = quickCheck . prop_idempotentMarshalling
+qcIM :: (Show a, Eq a, CPPValue a) => String -> Gen a -> TestTree
+qcIM n = testProperty n . prop_idempotentMarshalling
 
-testIDs = do
-  putStrLn "Testing ExecutorInfo"
-  qcIM (arbitrary :: Gen ExecutorInfo)
-  putStrLn "Testing TaskInfo"
-  qcIM (arbitrary :: Gen TaskInfo)
-  putStrLn "Testing Volume"
-  qcIM (arbitrary :: Gen Volume)
-  putStrLn "Testing HealthCheck"
-  qcIM (arbitrary :: Gen HealthCheck)
-  putStrLn "Testing ContainerInfo"
-  qcIM (arbitrary :: Gen ContainerInfo)
-  putStrLn "Testing Value"
-  qcIM (arbitrary :: Gen Value)
-  putStrLn "Testing FrameworkID"
-  qcIM (arbitrary :: Gen FrameworkID)
-  putStrLn "Testing OfferID"
-  qcIM (arbitrary :: Gen OfferID)
-  putStrLn "Testing SlaveID"
-  qcIM (arbitrary :: Gen SlaveID)
-  putStrLn "Testing TaskID"
-  qcIM (arbitrary :: Gen TaskID)
-  putStrLn "Testing ExecutorID"
-  qcIM (arbitrary :: Gen ExecutorID)
-  putStrLn "Testing ContainerID"
-  qcIM (arbitrary :: Gen ContainerID)
-  putStrLn "Testing Filters"
-  qcIM (arbitrary :: Gen Filters)
-  putStrLn "Testing Environment"
-  qcIM (arbitrary :: Gen Environment)
-  putStrLn "Testing FrameworkInfo"
-  qcIM (arbitrary :: Gen FrameworkInfo)
-  putStrLn "Testing CommandURI"
-  qcIM (arbitrary :: Gen CommandURI)
-  putStrLn "Testing Credential"
-  qcIM (arbitrary :: Gen Credential)
-  putStrLn "Testing TaskStatus"
-  qcIM (arbitrary :: Gen TaskStatus)
-  putStrLn "Testing ResourceUsage"
-  qcIM (arbitrary :: Gen ResourceUsage)
-  putStrLn "Testing ResourceStatistics"
-  qcIM (arbitrary :: Gen ResourceStatistics)
-  putStrLn "Testing Parameters"
-  qcIM (arbitrary :: Gen Parameters)
-  putStrLn "Testing Attribute"
-  qcIM (arbitrary :: Gen Attribute)
-  putStrLn "Testing Resource"
-  qcIM (arbitrary :: Gen Resource)
-  putStrLn "Testing CommandInfo"
-  qcIM (arbitrary :: Gen CommandInfo)
-  putStrLn "Testing MasterInfo"
-  qcIM (arbitrary :: Gen MasterInfo)
-  putStrLn "Testing Request"
-  qcIM (arbitrary :: Gen Request)
-  putStrLn "Testing Offer"
-  qcIM (arbitrary :: Gen Offer)
-  putStrLn "Testing SlaveInfo"
-  qcIM (arbitrary :: Gen SlaveInfo)
+testIDs = testGroup "Marshalling"
+  [ qcIM "ExecutorInfo" (arbitrary :: Gen ExecutorInfo)
+  , qcIM "TaskInfo" (arbitrary :: Gen TaskInfo)
+  , qcIM "Volume" (arbitrary :: Gen Volume)
+  , qcIM "HealthCheck" (arbitrary :: Gen HealthCheck)
+  , qcIM "ContainerInfo" (arbitrary :: Gen ContainerInfo)
+  , qcIM "Value" (arbitrary :: Gen Value)
+  , qcIM "FrameworkInfo" (arbitrary :: Gen FrameworkID)
+  , qcIM "OfferID" (arbitrary :: Gen OfferID)
+  , qcIM "SlaveID" (arbitrary :: Gen SlaveID)
+  , qcIM "TaskID" (arbitrary :: Gen TaskID)
+  , qcIM "ExecutorID" (arbitrary :: Gen ExecutorID)
+  , qcIM "ContainerID" (arbitrary :: Gen ContainerID)
+  , qcIM "Filters" (arbitrary :: Gen Filters)
+  , qcIM "Environment" (arbitrary :: Gen Environment)
+  , qcIM "FrameworkInfo" (arbitrary :: Gen FrameworkInfo)
+  , qcIM "CommandURI" (arbitrary :: Gen CommandURI)
+  , qcIM "Credential" (arbitrary :: Gen Credential)
+  , qcIM "TaskStatus" (arbitrary :: Gen TaskStatus)
+  , qcIM "ResourceUsage" (arbitrary :: Gen ResourceUsage)
+  , qcIM "ResourceStatistics" (arbitrary :: Gen ResourceStatistics)
+  , qcIM "Parameters" (arbitrary :: Gen Parameters)
+  , qcIM "Attribute" (arbitrary :: Gen Attribute)
+  , qcIM "Resource" (arbitrary :: Gen Resource)
+  , qcIM "CommandInfo" (arbitrary :: Gen CommandInfo)
+  , qcIM "MasterInfo" (arbitrary :: Gen MasterInfo)
+  , qcIM "Request" (arbitrary :: Gen Request)
+  , qcIM "Offer" (arbitrary :: Gen Offer)
+  , qcIM "SlaveInfo" (arbitrary :: Gen SlaveInfo)
+  ]
 
+executorTests = testGroup "Executor"
+  [
+  ]
+
+schedulerTests = testGroup "Scheduler"
+  [
+  ]
