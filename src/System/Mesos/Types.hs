@@ -18,8 +18,10 @@ module System.Mesos.Types (
   filters,
   -- ** Launching Tasks
   TaskInfo(..),
+  taskInfo,
   TaskExecutionInfo(..),
   CommandInfo(..),
+  commandInfo,
   CommandURI(..),
   commandURI,
   CommandValue (..),
@@ -221,6 +223,9 @@ data CommandInfo = CommandInfo
   , commandUser        :: !(Maybe ByteString)
   }
   deriving (Show, Eq)
+
+commandInfo :: CommandValue -> CommandInfo
+commandInfo v = CommandInfo [] Nothing v Nothing
 
 data CommandURI = CommandURI
   { commandURIValue      :: !ByteString
@@ -506,6 +511,9 @@ data TaskInfo = TaskInfo
   , taskHealthCheck    :: !(Maybe HealthCheck)
   }
   deriving (Show, Eq)
+
+taskInfo :: ByteString -> TaskID -> SlaveID -> [Resource] -> TaskExecutionInfo -> TaskInfo
+taskInfo n t s rs i = TaskInfo n t s rs i Nothing Nothing Nothing
 
 -- | Describes the current status of a task.
 data TaskStatus = TaskStatus
