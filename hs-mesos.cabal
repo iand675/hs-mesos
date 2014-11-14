@@ -64,7 +64,8 @@ library
   default-language:    Haskell2010
   include-dirs:        ext, /usr/include, /usr/local/include/mesos
   install-includes:    ext/executor.h,
-                       ext/scheduler.h
+                       ext/scheduler.h,
+                       ext/types.h
   c-sources:           ext/executor.cpp,
                        ext/scheduler.cpp,
                        ext/types/attribute.cpp,
