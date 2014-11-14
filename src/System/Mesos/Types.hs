@@ -118,28 +118,28 @@ instance Enum Status where
   toEnum _ = error "Unsupported status"
 
 -- | A unique ID assigned to a framework. A framework can reuse this ID in order to do failover.
-newtype FrameworkID = FrameworkID { fromFrameworkID :: ByteString }
+newtype FrameworkID = FrameworkID { frameworkIDId' :: ByteString }
   deriving (Show, Eq, IsString)
 
 -- | A unique ID assigned to an offer.
-newtype OfferID = OfferID { fromOfferID :: ByteString }
+newtype OfferID = OfferID { offerIDId' :: ByteString }
   deriving (Show, Eq, IsString)
 
 -- |  A unique ID assigned to a slave. Currently, a slave gets a new ID whenever it (re)registers with Mesos. Framework writers shouldn't assume any binding between a slave ID and and a hostname.
-newtype SlaveID = SlaveID { fromSlaveID :: ByteString }
+newtype SlaveID = SlaveID { slaveIDId' :: ByteString }
   deriving (Show, Eq, IsString)
 
 -- |  A framework generated ID to distinguish a task. The ID must remain
 -- unique while the task is active. However, a framework can reuse an
 -- ID _only_ if a previous task with the same ID has reached a
 -- terminal state (e.g., 'Finished', 'Lost', 'Killed', etc.). See 'isTerminal' for a utility function to simplify checking task state.
-newtype TaskID = TaskID { fromTaskID :: ByteString }
+newtype TaskID = TaskID { taskIDId' :: ByteString }
   deriving (Show, Eq, IsString)
 
 -- |  A framework generated ID to distinguish an executor. Only one
 -- executor with the same ID can be active on the same slave at a
 -- time.
-newtype ExecutorID = ExecutorID { fromExecutorID :: ByteString }
+newtype ExecutorID = ExecutorID { executorIDId' :: ByteString }
   deriving (Show, Eq, IsString)
 
 
@@ -147,7 +147,7 @@ newtype ExecutorID = ExecutorID { fromExecutorID :: ByteString }
 -- between any active or completed containers on the slave. In particular,
 -- containers for different runs of the same (framework, executor) pair must be
 -- unique.
-newtype ContainerID = ContainerID { fromContainerID :: ByteString }
+newtype ContainerID = ContainerID { containerIDId' :: ByteString }
   deriving (Show, Eq, IsString)
 
 -- | Describes a framework. If the user field is set to an empty string
@@ -167,14 +167,14 @@ newtype ContainerID = ContainerID { fromContainerID :: ByteString }
 -- If the 'frameworkHostname' field is set to an empty string Mesos will
 -- automagically set it to the current hostname.
 data FrameworkInfo = FrameworkInfo
-  { frameworkUser            :: !ByteString
-  , frameworkName            :: !ByteString
-  , frameworkID              :: !(Maybe FrameworkID)
-  , frameworkFailoverTimeout :: !(Maybe Double)
-  , frameworkCheckpoint      :: !(Maybe Bool)
-  , frameworkRole            :: !(Maybe ByteString)
-  , frameworkHostname        :: !(Maybe ByteString)
-  , frameworkPrincipal       :: !(Maybe ByteString)
+  { frameworkInfoUser            :: !ByteString
+  , frameworkInfoName            :: !ByteString
+  , frameworkInfoId'             :: !(Maybe FrameworkID)
+  , frameworkInfoFailoverTimeout :: !(Maybe Double)
+  , frameworkInfoCheckpoint      :: !(Maybe Bool)
+  , frameworkInfoRole            :: !(Maybe ByteString)
+  , frameworkInfoHostname        :: !(Maybe ByteString)
+  , frameworkInfoPrincipal       :: !(Maybe ByteString)
   }
   deriving (Show, Eq)
 
@@ -183,12 +183,12 @@ frameworkInfo u n = FrameworkInfo u n Nothing Nothing Nothing Nothing Nothing No
 
 data HealthCheckStrategy
    = HTTPCheck
-     { httpCheckPort     :: !Word32 -- ^ Port to send the HTTP request.
-     , httpCheckPath     :: !(Maybe ByteString) -- ^ HTTP request path. (defaults to @"/"@.
-     , httpCheckStatuses :: ![Word32] -- ^ Expected response statuses. Not specifying any statuses implies that any returned status is acceptable.
+     { healthCheckStrategyPort     :: !Word32 -- ^ Port to send the HTTP request.
+     , healthCheckStrategyPath     :: !(Maybe ByteString) -- ^ HTTP request path. (defaults to @"/"@.
+     , healthCheckStrategyStatuses :: ![Word32] -- ^ Expected response statuses. Not specifying any statuses implies that any returned status is acceptable.
      }
    | CommandCheck
-     { commandCheckCommand :: !CommandInfo -- ^ Command health check.
+     { healthCheckStrategyCommand :: !CommandInfo -- ^ Command health check.
      } deriving (Show, Eq)
 
 data HealthCheck = HealthCheck
@@ -211,16 +211,16 @@ data HealthCheck = HealthCheck
 -- working directory.  In addition, any environment variables are set before
 -- executing the command (so they can be used to "parameterize" your command).
 data CommandInfo = CommandInfo
-  { commandInfoURIs    :: ![CommandURI]
-  , commandEnvironment :: !(Maybe [(ByteString, ByteString)])
-  , commandValue       :: !CommandValue
+  { commandInfoUris    :: ![CommandURI]
+  , commandInfoEnvironment :: !(Maybe [(ByteString, ByteString)])
+  , commandInfoValue       :: !CommandValue
   -- TODO: Existing field in 0.20, but doesn't actually work
   -- , commandContainer   :: !(Maybe ContainerInfo)
 
   -- | Enables executor and tasks to run as a specific user. If the user
   -- field is present both in 'FrameworkInfo' and here, the 'CommandInfo'
   -- user value takes precedence.
-  , commandUser        :: !(Maybe ByteString)
+  , commandInfoUser        :: !(Maybe ByteString)
   }
   deriving (Show, Eq)
 
@@ -252,16 +252,16 @@ data CommandValue = ShellCommand !ByteString
 -- Describes information about an executor. The 'executorData' field can be
 -- used to pass arbitrary bytes to an executor.
 data ExecutorInfo = ExecutorInfo
-  { executorInfoExecutorID    :: !ExecutorID
-  , executorInfoFrameworkID   :: !FrameworkID
+  { executorInfoExecutorId    :: !ExecutorID
+  , executorInfoFrameworkId   :: !FrameworkID
   , executorInfoCommandInfo   :: !CommandInfo
   , executorInfoContainerInfo :: !(Maybe ContainerInfo)
   -- ^ Executor provided with a container will launch the container
   -- with the executor's 'CommandInfo' and we expect the container to
   -- act as a Mesos executor.
   , executorInfoResources     :: ![Resource]
-  , executorName              :: !(Maybe ByteString)
-  , executorSource            :: !(Maybe ByteString)
+  , executorInfoName              :: !(Maybe ByteString)
+  , executorInfoSource            :: !(Maybe ByteString)
   -- ^ Source is an identifier style string used by frameworks to track
   -- the source of an executor. This is useful when it's possible for
   -- different executor ids to be related semantically.
@@ -269,7 +269,7 @@ data ExecutorInfo = ExecutorInfo
   -- NOTE: Source is exposed alongside the resource usage of the
   -- executor via JSON on the slave. This allows users to import
   -- usage information into a time series database for monitoring.
-  , executorData              :: !(Maybe ByteString)
+  , executorInfoData              :: !(Maybe ByteString)
   }
   deriving (Show, Eq)
 
@@ -280,10 +280,10 @@ executorInfo eid fid ci rs = ExecutorInfo eid fid ci Nothing rs Nothing Nothing 
 -- future which might be used, for example, to link a framework web UI
 -- to a master web UI.
 data MasterInfo = MasterInfo
-  { masterInfoID       :: !ByteString
-  , masterInfoIP       :: !Word32
+  { masterInfoId'      :: !ByteString
+  , masterInfoIp       :: !Word32
   , masterInfoPort     :: !(Maybe Word32) -- ^ Defaults to 5050
-  , masterInfoPID      :: !(Maybe ByteString)
+  , masterInfoPid      :: !(Maybe ByteString)
   , masterInfoHostname :: !(Maybe ByteString)
   }
   deriving (Show, Eq)
@@ -301,7 +301,7 @@ data SlaveInfo = SlaveInfo
   , slaveInfoPort       :: !(Maybe Word32)
   , slaveInfoResources  :: ![Resource]
   , slaveInfoAttributes :: ![(ByteString, Value)]
-  , slaveInfoSlaveID    :: !(Maybe SlaveID)
+  , slaveInfoSlaveId    :: !(Maybe SlaveID)
   , slaveInfoCheckpoint :: !(Maybe Bool)
   }
   deriving (Show, Eq)
@@ -310,7 +310,7 @@ slaveInfo :: ByteString -> [Resource] -> [(ByteString, Value)] -> SlaveInfo
 slaveInfo hn rs as = SlaveInfo hn Nothing rs as Nothing Nothing
 
 newtype Filters = Filters
-  { refuseSeconds :: Maybe Double
+  { filtersRefuseSeconds :: Maybe Double
   -- ^ Time to consider unused resources refused. Note that all unused
   -- resources will be considered refused and use the default value
   -- (below) regardless of whether Filters was passed to
@@ -353,34 +353,34 @@ resource n v = Resource n v Nothing
 
 data ResourceStatistics = ResourceStatistics
   { resourceStatisticsTimestamp          :: !Double
-  , resourceStatisticsCPUsUserTimeSecs   :: !(Maybe Double)
+  , resourceStatisticsCpusUserTimeSecs   :: !(Maybe Double)
   -- ^ Total CPU time spent in user mode
-  , resourceStatisticsCPUsSystemTimeSecs :: !(Maybe Double)
+  , resourceStatisticsCpusSystemTimeSecs :: !(Maybe Double)
   -- ^ Total CPU time spent in kernel mode.
-  , resourceCPUsLimit                    :: !Double
+  , resourceStatisticsCpusLimit                    :: !Double
   -- ^ Number of CPUs allocated.
-  , resourceCPUsPeriods                  :: !(Maybe Word32)
+  , resourceStatisticsCpusPeriods                  :: !(Maybe Word32)
   -- ^ cpu.stat on process throttling (for contention issues).
-  , resourceCPUsThrottled                :: !(Maybe Word32)
+  , resourceStatisticsCpusThrottled                :: !(Maybe Word32)
   -- ^ cpu.stat on process throttling (for contention issues).
-  , resourceCPUsThrottledTimeSecs        :: !(Maybe Double)
+  , resourceStatisticsCpusThrottledTimeSecs        :: !(Maybe Double)
   -- ^ cpu.stat on process throttling (for contention issues).
-  , resourceMemoryResidentSetSize        :: !(Maybe Word64)
+  , resourceStatisticsMemoryResidentSetSize        :: !(Maybe Word64)
   -- ^ Resident set size
-  , resourceMemoryLimitBytes             :: !(Maybe Word64)
+  , resourceStatisticsMemoryLimitBytes             :: !(Maybe Word64)
   -- ^ Amount of memory resources allocated.
-  , resourceMemoryFileBytes              :: !(Maybe Word64)
-  , resourceMemoryAnonymousBytes         :: !(Maybe Word64)
-  , resourceMemoryMappedFileBytes        :: !(Maybe Word64)
-  , resourcePerformanceStatistics        :: !(Maybe PerformanceStatistics)
-  , resourceNetRxPackets                 :: !(Maybe Word64)
-  , resourceNetRxBytes                   :: !(Maybe Word64)
-  , resourceNetRxErrors                  :: !(Maybe Word64)
-  , resourceNetRxDropped                 :: !(Maybe Word64)
-  , resourceNetTxPackets                 :: !(Maybe Word64)
-  , resourceNetTxBytes                   :: !(Maybe Word64)
-  , resourceNetTxErrors                  :: !(Maybe Word64)
-  , resourceNetTxDropped                 :: !(Maybe Word64)
+  , resourceStatisticsMemoryFileBytes              :: !(Maybe Word64)
+  , resourceStatisticsMemoryAnonymousBytes         :: !(Maybe Word64)
+  , resourceStatisticsMemoryMappedFileBytes        :: !(Maybe Word64)
+  , resourceStatisticsPerformanceStatistics        :: !(Maybe PerformanceStatistics)
+  , resourceStatisticsNetRxPackets                 :: !(Maybe Word64)
+  , resourceStatisticsNetRxBytes                   :: !(Maybe Word64)
+  , resourceStatisticsNetRxErrors                  :: !(Maybe Word64)
+  , resourceStatisticsNetRxDropped                 :: !(Maybe Word64)
+  , resourceStatisticsNetTxPackets                 :: !(Maybe Word64)
+  , resourceStatisticsNetTxBytes                   :: !(Maybe Word64)
+  , resourceStatisticsNetTxErrors                  :: !(Maybe Word64)
+  , resourceStatisticsNetTxDropped                 :: !(Maybe Word64)
   }
   deriving (Show, Eq)
 
@@ -392,11 +392,11 @@ data ResourceStatistics = ResourceStatistics
 -- used. In this case, we provide the task id here instead, in
 -- order to make this message easier for schedulers to work with.
 data ResourceUsage = ResourceUsage
-  { resourceUsageSlaveID      :: !SlaveID
-  , resourceUsageFrameworkID  :: !FrameworkID
-  , resourceUsageExecutorID   :: !(Maybe ExecutorID) -- ^ If present, this executor was explicitly specified.
+  { resourceUsageSlaveId      :: !SlaveID
+  , resourceUsageFrameworkId  :: !FrameworkID
+  , resourceUsageExecutorId   :: !(Maybe ExecutorID) -- ^ If present, this executor was explicitly specified.
   , resourceUsageExecutorName :: !(Maybe ByteString) -- ^ If present, this executor was explicitly specified.
-  , resourceUsageTaskID       :: !(Maybe TaskID) -- ^ If present, this task did not have an executor.
+  , resourceUsageTaskId       :: !(Maybe TaskID) -- ^ If present, this task did not have an executor.
   , resourceUsageStatistics   :: !(Maybe ResourceStatistics)
   -- ^  If missing, the isolation module cannot provide resource usage.
   }
@@ -467,21 +467,21 @@ data PerformanceStatistics = PerformanceStatistics
 -- | Describes a request for resources that can be used by a framework
 -- to proactively influence the allocator.
 data Request = Request
-  { requestSlaveID :: !(Maybe SlaveID) -- ^ If value is provided, then this request is assumed to only apply to resources on the given slave.
-  , reqResources   :: ![Resource]
+  { requestSlaveId :: !(Maybe SlaveID) -- ^ If value is provided, then this request is assumed to only apply to resources on the given slave.
+  , requestResources   :: ![Resource]
   }
   deriving (Show, Eq)
 
 -- | Describes some resources available on a slave. An offer only
 -- contains resources from a single slave.
 data Offer = Offer
-  { offerID          :: !OfferID
-  , offerFrameworkID :: !FrameworkID
-  , offerSlaveID     :: !SlaveID
+  { offerId'         :: !OfferID
+  , offerFrameworkId :: !FrameworkID
+  , offerSlaveId     :: !SlaveID
   , offerHostname    :: !ByteString
   , offerResources   :: ![Resource]
   , offerAttributes  :: ![(ByteString, Value)]
-  , offerExecutorIDs :: ![ExecutorID]
+  , offerExecutorIds :: ![ExecutorID]
   }
   deriving (Show, Eq)
 
@@ -497,18 +497,18 @@ data TaskExecutionInfo
 -- A different executor can be used to launch this task, and subsequent tasks
 -- meant for the same executor can reuse the same ExecutorInfo struct.
 data TaskInfo = TaskInfo
-  { taskName           :: !ByteString
-  , taskID             :: !TaskID
-  , taskSlaveID        :: !SlaveID
-  , taskResources      :: ![Resource]
-  , taskImplementation :: !TaskExecutionInfo
-  , taskData           :: !(Maybe ByteString)
+  { taskInfoName           :: !ByteString
+  , taskInfoId'            :: !TaskID
+  , taskInfoSlaveId        :: !SlaveID
+  , taskInfoResources      :: ![Resource]
+  , taskInfoImplementation :: !TaskExecutionInfo
+  , taskInfoData           :: !(Maybe ByteString)
   -- | Task provided with a container will launch the container as part
   -- of this task paired with the task's CommandInfo.
-  , taskContainer      :: !(Maybe ContainerInfo)
+  , taskInfoContainer      :: !(Maybe ContainerInfo)
   -- | A health check for the task (currently in *alpha* and initial
   -- support will only be for TaskInfo's that have a CommandInfo).
-  , taskHealthCheck    :: !(Maybe HealthCheck)
+  , taskInfoHealthCheck    :: !(Maybe HealthCheck)
   }
   deriving (Show, Eq)
 
@@ -517,12 +517,12 @@ taskInfo n t s rs i = TaskInfo n t s rs i Nothing Nothing Nothing
 
 -- | Describes the current status of a task.
 data TaskStatus = TaskStatus
-  { taskStatusTaskID     :: !TaskID
+  { taskStatusTaskId     :: !TaskID
   , taskStatusState      :: !TaskState
   , taskStatusMessage    :: !(Maybe ByteString) -- ^ Possible message explaining state.
   , taskStatusData       :: !(Maybe ByteString)
-  , taskStatusSlaveID    :: !(Maybe SlaveID)
-  , taskStatusExecutorID :: !(Maybe ExecutorID)
+  , taskStatusSlaveId    :: !(Maybe SlaveID)
+  , taskStatusExecutorId :: !(Maybe ExecutorID)
   , taskStatusTimestamp  :: !(Maybe Double)
   -- | Describes whether the task has been determined to be healthy
   -- (true) or unhealthy (false) according to the HealthCheck field in
@@ -552,9 +552,9 @@ data ACLEntity = Some ![ByteString]
                | Any
                | None
                deriving (Show, Eq)
-data RegisterFrameworkACL = RegisterFrameworkACL { registerFrameworkPrincipals :: ACLEntity, registerFrameworkRoles :: ACLEntity } deriving (Show, Eq)
-data RunTaskACL = RunTaskACL { runTaskPrincipals :: ACLEntity, runTaskUsers :: ACLEntity } deriving (Show, Eq)
-data ShutdownFrameworkACL = ShutdownFrameworkACL { shutdownFrameworkPrincipals :: ACLEntity, shutdownFrameworkFrameworkPrincipals :: ACLEntity } deriving (Show, Eq)
+data RegisterFrameworkACL = RegisterFrameworkACL { registerFrameworkACLPrincipals :: ACLEntity, registerFrameworkACLRoles :: ACLEntity } deriving (Show, Eq)
+data RunTaskACL = RunTaskACL { runTaskACLPrincipals :: ACLEntity, runTaskACLUsers :: ACLEntity } deriving (Show, Eq)
+data ShutdownFrameworkACL = ShutdownFrameworkACL { shutdownFrameworkACLPrincipals :: ACLEntity, shutdownFrameworkACLFrameworkPrincipals :: ACLEntity } deriving (Show, Eq)
 
 data ACLSettings = ACLSettings
   { aclSettingsPermissive         :: !(Maybe Bool)
@@ -570,7 +570,7 @@ data RateLimit = RateLimit
   } deriving (Show, Eq)
 
 data RateLimits = RateLimits
-  { rateLimits                         :: ![RateLimit]
+  { rateLimitsRateLimits               :: ![RateLimit]
   , rateLimitsAggregateDefaultQPS      :: !(Maybe Double)
   , rateLimitsAggregateDefaultCapacity :: !(Maybe Double)
   } deriving (Show, Eq)

@@ -44,7 +44,7 @@ instance CPPValue SlaveInfo where
     cp <- allocMaybe (toCBool <$> slaveInfoCheckpoint i)
     (rp, rl) <- arrayLen =<< mapM cppValue (slaveInfoResources i)
     (ap, al) <- arrayLen =<< mapM (cppValue . toAttribute) (slaveInfoAttributes i)
-    sidp <- maybe (return nullPtr) cppValue $ slaveInfoSlaveID i
+    sidp <- maybe (return nullPtr) cppValue $ slaveInfoSlaveId i
     liftIO $ c_toSlaveInfo hp (fromIntegral hl) pp rp (fromIntegral rl) ap (fromIntegral al) sidp cp
 
   unmarshal i = do

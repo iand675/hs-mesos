@@ -18,7 +18,7 @@ foreign import ccall unsafe "ext/types.h destroyFilters" c_destroyFilters
   -> IO ()
 
 instance CPPValue Filters where
-  marshal f = case refuseSeconds f of
+  marshal f = case filtersRefuseSeconds f of
     Nothing -> liftIO $ c_toFilters nullPtr
     Just s -> do
       sp <- alloc

@@ -1,5 +1,5 @@
 name:                hs-mesos
-version:             0.20.1.0
+version:             0.20.2.0
 
 description:         Bindings to the Apache Mesos platform.
                      .
@@ -118,7 +118,7 @@ test-suite test
 executable test-executor
   main-is:             TestExecutor.hs
   hs-source-dirs:      test
-  build-depends:       base, hs-mesos, bytestring
+  build-depends:       base, hs-mesos, bytestring, lens
   default-language:    Haskell2010
   extra-libraries:     mesos stdc++
 

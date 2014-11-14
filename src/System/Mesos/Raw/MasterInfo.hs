@@ -32,11 +32,11 @@ foreign import ccall unsafe "ext/types.h destroyMasterInfo" c_destroyMasterInfo
 
 instance CPPValue MasterInfo where
   marshal i = do
-    (idp, idl) <- cstring $ masterInfoID i
-    (pidp, pidl) <- maybeCString $ masterInfoPID i
+    (idp, idl) <- cstring $ masterInfoId' i
+    (pidp, pidl) <- maybeCString $ masterInfoPid i
     (hnp, hnl) <- maybeCString $ masterInfoHostname i
     prt <- allocMaybe $ fmap CUInt $ masterInfoPort i
-    liftIO $ c_toMasterInfo idp (fromIntegral idl) (CUInt $ masterInfoIP i) prt pidp (fromIntegral pidl) hnp (fromIntegral hnl)
+    liftIO $ c_toMasterInfo idp (fromIntegral idl) (CUInt $ masterInfoIp i) prt pidp (fromIntegral pidl) hnp (fromIntegral hnl)
 
   unmarshal i = do
     (idpP, idlP) <- arrayPair

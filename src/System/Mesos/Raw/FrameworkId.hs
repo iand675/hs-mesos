@@ -1,4 +1,6 @@
 module System.Mesos.Raw.FrameworkId where
+import           Control.Lens
+import           System.Mesos.Lens
 import           System.Mesos.Internal
 
 type FrameworkIDPtr = Ptr FrameworkID
@@ -11,7 +13,7 @@ foreign import ccall unsafe "ext/types.h destroyFrameworkID" c_destroyFrameworkI
 
 instance CPPValue FrameworkID where
   marshal x = do
-    (strp, l) <- cstring $ fromFrameworkID x
+    (strp, l) <- cstring (x^.id')
     liftIO $ c_toFrameworkID strp (fromIntegral l)
 
   unmarshal p = fmap FrameworkID $ do

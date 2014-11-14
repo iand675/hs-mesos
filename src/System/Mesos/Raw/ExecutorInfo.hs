@@ -46,16 +46,16 @@ foreign import ccall unsafe "ext/types.h destroyExecutorInfo" c_destroyExecutorI
 instance CPPValue ExecutorInfo where
 
   marshal i = do
-    eidP <- cppValue $ executorInfoExecutorID i
-    fidP <- cppValue $ executorInfoFrameworkID i
+    eidP <- cppValue $ executorInfoExecutorId i
+    fidP <- cppValue $ executorInfoFrameworkId i
     ciP <- cppValue $ executorInfoCommandInfo i
     ctrP <- case executorInfoContainerInfo i of
               Nothing -> return nullPtr
               Just ctr -> cppValue ctr
     rps <- mapM cppValue $ executorInfoResources i
-    (np, nl) <- maybeCString $ executorName i
-    (sp, sl) <- maybeCString $ executorSource i
-    (dp, dl) <- maybeCString $ executorData i
+    (np, nl) <- maybeCString $ executorInfoName i
+    (sp, sl) <- maybeCString $ executorInfoSource i
+    (dp, dl) <- maybeCString $ executorInfoData i
     (rs, rLen) <- arrayLen rps
     liftIO $ c_toExecutorInfo eidP fidP ciP ctrP rs (fromIntegral rLen) np (fromIntegral nl) sp (fromIntegral sl) dp (fromIntegral dl)
 

@@ -48,20 +48,20 @@ foreign import ccall unsafe "ext/types.h destroyTaskInfo" c_destroyTaskInfo
 instance CPPValue TaskInfo where
 
   marshal t = do
-    (np, nl) <- cstring $ taskName t
-    rps <- mapM cppValue (taskResources t)
-    tid <- cppValue $ taskID t
-    sid <- cppValue $ taskSlaveID t
-    eip <- maybe (return nullPtr) cppValue $ case taskImplementation t of
+    (np, nl) <- cstring $ taskInfoName t
+    rps <- mapM cppValue (taskInfoResources t)
+    tid <- cppValue $ taskInfoId' t
+    sid <- cppValue $ taskInfoSlaveId t
+    eip <- maybe (return nullPtr) cppValue $ case taskInfoImplementation t of
                                                TaskExecutor e -> Just e
                                                _ -> Nothing
-    cip <- maybe (return nullPtr) cppValue $ case taskImplementation t of
+    cip <- maybe (return nullPtr) cppValue $ case taskInfoImplementation t of
                                                TaskCommand c -> Just c
                                                _ -> Nothing
-    (tdp, tdl) <- maybeCString $ taskData t
+    (tdp, tdl) <- maybeCString $ taskInfoData t
     (rpp, rl) <- arrayLen rps
-    ctrp <- maybe (return nullPtr) cppValue $ taskContainer t
-    hcp <- maybe (return nullPtr) cppValue $ taskHealthCheck t
+    ctrp <- maybe (return nullPtr) cppValue $ taskInfoContainer t
+    hcp <- maybe (return nullPtr) cppValue $ taskInfoHealthCheck t
     liftIO $ c_toTaskInfo np (fromIntegral nl) tid sid rpp (fromIntegral rl) eip cip tdp (fromIntegral tdl) ctrp hcp
 
   unmarshal t = do

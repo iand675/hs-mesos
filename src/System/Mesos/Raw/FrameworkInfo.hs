@@ -46,14 +46,14 @@ foreign import ccall "ext/types.h destroyFrameworkInfo" c_destroyFrameworkInfo
 
 instance CPPValue FrameworkInfo where
   marshal fi = do
-    (up, ul) <- cstring $ frameworkUser fi
-    (np, nl) <- cstring $ frameworkName fi
-    (rp, rl) <- maybeCString $ frameworkRole fi
-    (hp, hl) <- maybeCString $ frameworkHostname fi
-    (pp, pl) <- maybeCString $ frameworkPrincipal fi
-    fp' <- allocMaybe $ fmap CDouble $ frameworkFailoverTimeout fi
-    cp' <- allocMaybe $ fmap toCBool $ frameworkCheckpoint fi
-    let fidFun f = case frameworkID fi of
+    (up, ul) <- cstring $ frameworkInfoUser fi
+    (np, nl) <- cstring $ frameworkInfoName fi
+    (rp, rl) <- maybeCString $ frameworkInfoRole fi
+    (hp, hl) <- maybeCString $ frameworkInfoHostname fi
+    (pp, pl) <- maybeCString $ frameworkInfoPrincipal fi
+    fp' <- allocMaybe $ fmap CDouble $ frameworkInfoFailoverTimeout fi
+    cp' <- allocMaybe $ fmap toCBool $ frameworkInfoCheckpoint fi
+    let fidFun f = case frameworkInfoId' fi of
           Nothing -> f nullPtr
           Just r -> do
             p <- alloc

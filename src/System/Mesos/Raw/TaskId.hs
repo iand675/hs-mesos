@@ -11,7 +11,7 @@ foreign import ccall "ext/types.h destroyTaskID" c_destroyTaskID :: TaskIDPtr ->
 
 instance CPPValue TaskID where
   marshal x = do
-    (strp, l) <- cstring $ fromTaskID x
+    (strp, l) <- cstring $ taskIDId' x
     liftIO $ c_toTaskID strp $ fromIntegral l
 
   unmarshal p = fmap TaskID $ do

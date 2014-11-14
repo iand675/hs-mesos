@@ -40,11 +40,11 @@ foreign import ccall unsafe "ext/types.h destroyCommandInfo" c_destroyCommandInf
 instance CPPValue CommandInfo where
 
   marshal i = do
-    envP <- maybe (return nullPtr) (cppValue . toEnvironment) $ commandEnvironment i
-    uriPs <- mapM cppValue $ commandInfoURIs i
+    envP <- maybe (return nullPtr) (cppValue . toEnvironment) $ commandInfoEnvironment i
+    uriPs <- mapM cppValue $ commandInfoUris i
     (upp, upl) <- arrayLen uriPs
-    (up, ul) <- maybeCString $ commandUser i
-    case commandValue i of
+    (up, ul) <- maybeCString $ commandInfoUser i
+    case commandInfoValue i of
       (ShellCommand cmd) -> do
         (vp, vl) <- cstring cmd
         liftIO $ c_toCommandInfo upp (fromIntegral upl) envP (toCBool True) vp (fromIntegral vl) nullPtr 0 up (fromIntegral ul)

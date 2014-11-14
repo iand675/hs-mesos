@@ -11,7 +11,7 @@ foreign import ccall unsafe "ext/types.h destroySlaveID" c_destroySlaveID :: Sla
 
 instance CPPValue SlaveID where
   marshal x = do
-    (strp, l) <- cstring $ fromSlaveID x
+    (strp, l) <- cstring $ slaveIDId' x
     liftIO $ c_toSlaveID strp $ fromIntegral l
 
   unmarshal p = fmap SlaveID $ do

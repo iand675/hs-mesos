@@ -88,33 +88,33 @@ instance CPPValue ResourceStatistics where
     memFB <- alloc
     memAB <- alloc
     memMB <- alloc
-    cpuUTS' <- maybe (return nullPtr) (\x -> poke cpuUTS (CDouble x) >> return cpuUTS) $ resourceStatisticsCPUsUserTimeSecs s
-    cpuSTS' <- maybe (return nullPtr) (\x -> poke cpuSTS (CDouble x) >> return cpuSTS) $ resourceStatisticsCPUsSystemTimeSecs s
-    cpuPs' <- maybe (return nullPtr) (\x -> poke cpuPs (CUInt x) >> return cpuPs) $ resourceCPUsPeriods s
-    cpuT' <- maybe (return nullPtr) (\x -> poke cpuT (CUInt x) >> return cpuT) $ resourceCPUsThrottled s
-    cpuTTS' <- maybe (return nullPtr) (\x -> poke cpuTTS (CDouble x) >> return cpuTTS) $ resourceCPUsThrottledTimeSecs s
-    memRSS' <- maybe (return nullPtr) (\x -> poke memRSS (CULong x) >> return memRSS) $ resourceMemoryResidentSetSize s
-    memLB' <- maybe (return nullPtr) (\x -> poke memLB (CULong x) >> return memLB) $ resourceMemoryLimitBytes s
-    memFB' <- maybe (return nullPtr) (\x -> poke memFB (CULong x) >> return memFB) $ resourceMemoryFileBytes s
-    memAB' <- maybe (return nullPtr) (\x -> poke memAB (CULong x) >> return memAB) $ resourceMemoryAnonymousBytes s
-    memMB' <- maybe (return nullPtr) (\x -> poke memMB (CULong x) >> return memMB) $ resourceMemoryMappedFileBytes s
-    perf <- case resourcePerformanceStatistics s of
+    cpuUTS' <- maybe (return nullPtr) (\x -> poke cpuUTS (CDouble x) >> return cpuUTS) $ resourceStatisticsCpusUserTimeSecs s
+    cpuSTS' <- maybe (return nullPtr) (\x -> poke cpuSTS (CDouble x) >> return cpuSTS) $ resourceStatisticsCpusSystemTimeSecs s
+    cpuPs' <- maybe (return nullPtr) (\x -> poke cpuPs (CUInt x) >> return cpuPs) $ resourceStatisticsCpusPeriods s
+    cpuT' <- maybe (return nullPtr) (\x -> poke cpuT (CUInt x) >> return cpuT) $ resourceStatisticsCpusThrottled s
+    cpuTTS' <- maybe (return nullPtr) (\x -> poke cpuTTS (CDouble x) >> return cpuTTS) $ resourceStatisticsCpusThrottledTimeSecs s
+    memRSS' <- maybe (return nullPtr) (\x -> poke memRSS (CULong x) >> return memRSS) $ resourceStatisticsMemoryResidentSetSize s
+    memLB' <- maybe (return nullPtr) (\x -> poke memLB (CULong x) >> return memLB) $ resourceStatisticsMemoryLimitBytes s
+    memFB' <- maybe (return nullPtr) (\x -> poke memFB (CULong x) >> return memFB) $ resourceStatisticsMemoryFileBytes s
+    memAB' <- maybe (return nullPtr) (\x -> poke memAB (CULong x) >> return memAB) $ resourceStatisticsMemoryAnonymousBytes s
+    memMB' <- maybe (return nullPtr) (\x -> poke memMB (CULong x) >> return memMB) $ resourceStatisticsMemoryMappedFileBytes s
+    perf <- case resourceStatisticsPerformanceStatistics s of
               Nothing -> return nullPtr
               Just p -> cppValue p
     let allocMStat = allocMaybe . fmap CULong
-    netRXP <- allocMStat $ resourceNetRxPackets s
-    netRXB <- allocMStat $ resourceNetRxBytes s
-    netRXE <- allocMStat $ resourceNetRxErrors s
-    netRXD <- allocMStat $ resourceNetRxDropped s
-    netTXP <- allocMStat $ resourceNetTxPackets s
-    netTXB <- allocMStat $ resourceNetTxBytes s
-    netTXE <- allocMStat $ resourceNetTxErrors s
-    netTXD <- allocMStat $ resourceNetTxDropped s
+    netRXP <- allocMStat $ resourceStatisticsNetRxPackets s
+    netRXB <- allocMStat $ resourceStatisticsNetRxBytes s
+    netRXE <- allocMStat $ resourceStatisticsNetRxErrors s
+    netRXD <- allocMStat $ resourceStatisticsNetRxDropped s
+    netTXP <- allocMStat $ resourceStatisticsNetTxPackets s
+    netTXB <- allocMStat $ resourceStatisticsNetTxBytes s
+    netTXE <- allocMStat $ resourceStatisticsNetTxErrors s
+    netTXD <- allocMStat $ resourceStatisticsNetTxDropped s
     liftIO $ c_toResourceStatistics (CDouble $ resourceStatisticsTimestamp s)
 
                cpuUTS'
                cpuSTS'
-               (CDouble $ resourceCPUsLimit s)
+               (CDouble $ resourceStatisticsCpusLimit s)
                cpuPs'
                cpuT'
                cpuTTS'

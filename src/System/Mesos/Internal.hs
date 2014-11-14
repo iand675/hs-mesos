@@ -176,7 +176,7 @@ type FromID a = a -> Ptr.Ptr (Ptr.Ptr CChar) -> IO CInt
 
 makePrefixFields p = makeLensesWith tweakedRules
   where
-    tweakedRules = defaultFieldRules & lensField .~ (\ns n -> baseF (map downcasePrefix ns) (downcasePrefix n))
+    tweakedRules = defaultFieldRules & lensField .~ (\tn ns n -> baseF tn (map downcasePrefix ns) (downcasePrefix n))
     baseF = defaultFieldRules ^. lensField
     downcasePrefix n@(Name (OccName s) f) = case L.stripPrefix p s of
                                               Nothing -> n

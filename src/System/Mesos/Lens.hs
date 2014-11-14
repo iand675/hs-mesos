@@ -7,7 +7,6 @@
 module System.Mesos.Lens where
 
 import           Control.Lens.TH
-import           System.Mesos.Internal (makePrefixFields)
 import           System.Mesos.Types
 
 makePrisms ''TaskState
@@ -21,27 +20,27 @@ makeFields ''ContainerID
 makeFields ''FrameworkInfo
 makeFields ''HealthCheckStrategy
 makePrisms ''HealthCheckStrategy
-makePrefixFields "healthCheck" ''HealthCheck
-makePrefixFields "command" ''CommandInfo
-makePrefixFields "commandURI" ''CommandURI
+makeFields ''HealthCheck
+makeFields ''CommandInfo
+makeFields ''CommandURI
 makePrisms ''CommandValue
-makePrefixFields "executorInfo" ''ExecutorInfo
-makePrefixFields "masterInfo" ''MasterInfo
-makePrefixFields "slaveInfo" ''SlaveInfo
-makeLenses ''Filters
+makeFields ''ExecutorInfo
+makeFields ''MasterInfo
+makeFields ''SlaveInfo
+makeFields ''Filters
 makePrisms ''Value
 makeFields ''Resource
-makePrefixFields "resource" ''ResourceStatistics
+makeFields ''ResourceStatistics
 makeFields ''ResourceUsage
-makePrefixFields "performanceStatistics" ''PerformanceStatistics
+makeFields ''PerformanceStatistics
 makeFields ''Request
 makeFields ''Offer
 makePrisms ''TaskExecutionInfo
 makeFields ''TaskInfo
-makePrefixFields "taskStatus" ''TaskStatus
+makeFields ''TaskStatus
 makeFields ''Credential
 makePrisms ''Mode
 makeFields ''Volume
 makeFields ''ContainerType
 makePrisms ''ContainerType
-makePrefixFields "containerInfo" ''ContainerInfo
+makeFields ''ContainerInfo

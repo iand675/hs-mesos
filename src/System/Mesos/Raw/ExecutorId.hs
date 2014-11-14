@@ -11,7 +11,7 @@ foreign import ccall unsafe "ext/types.h destroyExecutorID" c_destroyExecutorID 
 
 instance CPPValue ExecutorID where
   marshal x = do
-    (strp, l) <- cstring $ fromExecutorID x
+    (strp, l) <- cstring $ executorIDId' x
     liftIO $ c_toExecutorID strp $ fromIntegral l
 
   unmarshal p = fmap ExecutorID $ do

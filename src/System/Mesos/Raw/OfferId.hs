@@ -12,7 +12,7 @@ foreign import ccall unsafe "ext/types.h destroyOfferID" c_destroyOfferID :: Off
 instance CPPValue OfferID where
 
   marshal x = do
-    (strp, l) <- cstring $ fromOfferID x
+    (strp, l) <- cstring $ offerIDId' x
     liftIO $ c_toOfferID strp $ fromIntegral l
 
   unmarshal p = fmap OfferID $ do

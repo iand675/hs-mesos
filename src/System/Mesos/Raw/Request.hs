@@ -24,8 +24,8 @@ foreign import ccall unsafe "ext/types.h destroyRequest" c_destroyRequest
 
 instance CPPValue Request where
   marshal r = do
-    sp <- maybe (return nullPtr) cppValue $ requestSlaveID r
-    rps <- mapM cppValue $ reqResources r
+    sp <- maybe (return nullPtr) cppValue $ requestSlaveId r
+    rps <- mapM cppValue $ requestResources r
     (rpp, rl) <- arrayLen rps
     liftIO $ c_toRequest sp rpp (fromIntegral rl)
 

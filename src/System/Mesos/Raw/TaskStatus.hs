@@ -42,11 +42,11 @@ foreign import ccall unsafe "ext/types.h destroyTaskStatus" c_destroyTaskStatus
 instance CPPValue TaskStatus where
 
   marshal s = do
-    tidP <- cppValue $ taskStatusTaskID s
-    sidP <- maybe (return nullPtr) cppValue $ taskStatusSlaveID s
+    tidP <- cppValue $ taskStatusTaskId s
+    sidP <- maybe (return nullPtr) cppValue $ taskStatusSlaveId s
     (tmp, tml) <- maybeCString $ taskStatusMessage s
     (tsd, tsl) <- maybeCString $ taskStatusData s
-    eidP <- maybe (return nullPtr) cppValue $ taskStatusExecutorID s
+    eidP <- maybe (return nullPtr) cppValue $ taskStatusExecutorId s
     tsp <- alloc
     tsp' <- maybe (return nullPtr) (\x -> poke tsp (CDouble x) >> return tsp) $ taskStatusTimestamp s
     hp <- allocMaybe $ fmap toCBool $ taskStatusHealthy s

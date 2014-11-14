@@ -42,10 +42,10 @@ import           Data.ByteString            (ByteString, packCStringLen)
 import           Data.ByteString.Unsafe     (unsafeUseAsCStringLen)
 -- import           Foreign.C
 import           Foreign.Ptr
-import           System.Mesos.Internal      hiding (marshal)
+import           System.Mesos.Internal      hiding (marshal, requestResources)
 import           System.Mesos.Raw
 import           System.Mesos.Raw.Scheduler
-import           System.Mesos.Types
+import           System.Mesos.Types         hiding (requestResources)
 
 -- | Callback interface to be implemented by frameworks'
 -- schedulers. Note that only one callback will be invoked at a time,

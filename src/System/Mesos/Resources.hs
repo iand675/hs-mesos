@@ -27,7 +27,7 @@ instance Ord Resources where
                    Nothing -> False
                    Just gs -> b && (sumOf (traverse . value . scalar) res <= sumOf (traverse . value . scalar) gs)
 
-
+{-
 class HasResources a where
   resources :: Lens' a [Resource]
 
@@ -45,6 +45,7 @@ instance HasResources Offer where
 
 instance HasResources TaskInfo where
   resources = lens taskResources (\t rs -> t { taskResources = rs })
+-}
 
 value :: Lens' Resource Value
 value = lens resourceValue $ \r v -> r { resourceValue = v }
