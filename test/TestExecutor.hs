@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
-import Control.Monad
-import Data.Monoid
-import System.Exit
-import System.Mesos.Executor
-import System.Mesos.TaskStatus
-import System.Mesos.Types
+import           Control.Monad
+import           Data.Monoid
+import           System.Exit
+import           System.Mesos.Executor
+import           System.Mesos.TaskStatus
+import           System.Mesos.Types
 
 data TestExecutor = TestExecutor
 instance ToExecutor TestExecutor where

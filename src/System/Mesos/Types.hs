@@ -497,7 +497,7 @@ data TaskExecutionInfo
 -- A different executor can be used to launch this task, and subsequent tasks
 -- meant for the same executor can reuse the same ExecutorInfo struct.
 data TaskInfo = TaskInfo
-  { taskInfoName       :: !ByteString
+  { taskName           :: !ByteString
   , taskID             :: !TaskID
   , taskSlaveID        :: !SlaveID
   , taskResources      :: ![Resource]

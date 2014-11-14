@@ -48,7 +48,7 @@ foreign import ccall unsafe "ext/types.h destroyTaskInfo" c_destroyTaskInfo
 instance CPPValue TaskInfo where
 
   marshal t = do
-    (np, nl) <- cstring $ taskInfoName t
+    (np, nl) <- cstring $ taskName t
     rps <- mapM cppValue (taskResources t)
     tid <- cppValue $ taskID t
     sid <- cppValue $ taskSlaveID t

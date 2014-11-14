@@ -1,5 +1,5 @@
 name:                hs-mesos
-version:             0.20.0.3
+version:             0.20.1.0
 
 description:         Bindings to the Apache Mesos platform.
                      .
@@ -23,6 +23,7 @@ library
                        System.Mesos.Types,
                        System.Mesos.Internal,
                        System.Mesos.TaskStatus,
+                       System.Mesos.Lens,
                        System.Mesos.Raw,
                        System.Mesos.Raw.Attribute,
                        System.Mesos.Raw.CommandInfo,
@@ -59,7 +60,7 @@ library
                        System.Mesos.Raw.Value,
                        System.Mesos.Raw.Volume
   -- other-extensions:    
-  build-depends:       base >=4.7 && < 5, bytestring, lens, managed
+  build-depends:       base >=4.7 && < 5, bytestring, lens, managed, template-haskell
   hs-source-dirs:      src
   default-language:    Haskell2010
   include-dirs:        ext, /usr/include, /usr/local/include/mesos
@@ -102,7 +103,7 @@ library
                        ext/types/value.cpp,
                        ext/types/volume.cpp
 
-  extra-libraries:     mesos stdc++
+  extra-libraries:     mesos stdc++ protobuf
   extra-lib-dirs:      /usr/local/lib
   cc-options:          -fPIC -std=c++11
   ghc-options:         -fPIC -funbox-strict-fields

@@ -29,7 +29,7 @@ data TestScheduler = TestScheduler
   }
 
 executorSettings fid = e { executorName = Just "Test Executor (Haskell)"}
-  where e = executorInfo (ExecutorID "default") fid (CommandInfo [] Nothing (ShellCommand "/Users/ian/Code/personal/hs-mesos/dist/build/test-executor/test-executor") Nothing) requiredResources
+  where e = executorInfo (ExecutorID "default") fid (commandInfo $ ShellCommand "/Users/ian/Code/personal/hs-mesos/dist/build/test-executor/test-executor") requiredResources
 
 instance ToScheduler TestScheduler where
   registered _ _ _ _ = putStrLn "Registered!"

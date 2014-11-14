@@ -39,19 +39,25 @@ module System.Mesos.Internal (
   liftIO,
   ToID,
   FromID,
-  defEq
+  defEq,
+  makePrefixFields
 ) where
 import           Control.Monad.Managed
 
 
 import           Control.Applicative
-import           Data.ByteString        (ByteString, packCStringLen)
-import           Data.ByteString.Unsafe (unsafeUseAsCStringLen)
+import           Control.Lens
+import           Control.Lens.TH
+import           Data.ByteString            (ByteString, packCStringLen)
+import           Data.ByteString.Unsafe     (unsafeUseAsCStringLen)
+import           Data.Char                  (toLower)
+import qualified Data.List                  as L
 import           Data.Word
-import           Foreign.C              hiding (peekCString)
-import qualified Foreign.Marshal        as Ptr
-import qualified Foreign.Ptr            as Ptr
-import qualified Foreign.Storable       as Ptr
+import           Foreign.C                  hiding (peekCString)
+import qualified Foreign.Marshal            as Ptr
+import qualified Foreign.Ptr                as Ptr
+import qualified Foreign.Storable           as Ptr
+import           Language.Haskell.TH.Syntax (Name (..), OccName (..))
 import           System.Mesos.Types
 
 class CPPValue a where
@@ -167,3 +173,11 @@ defEq d x x' = x == x' || ((x == Nothing || x == Just d) && (x' == Nothing || x'
 
 type ToID a = Ptr.Ptr CChar -> CInt -> IO a
 type FromID a = a -> Ptr.Ptr (Ptr.Ptr CChar) -> IO CInt
+
+makePrefixFields p = makeLensesWith tweakedRules
+  where
+    tweakedRules = defaultFieldRules & lensField .~ (\ns n -> baseF (map downcasePrefix ns) (downcasePrefix n))
+    baseF = defaultFieldRules ^. lensField
+    downcasePrefix n@(Name (OccName s) f) = case L.stripPrefix p s of
+                                              Nothing -> n
+                                              Just r -> Name (OccName (map toLower p ++ r)) f
