@@ -1,5 +1,5 @@
 name:                hs-mesos
-version:             0.20.0.2
+version:             0.20.0.3
 
 description:         Bindings to the Apache Mesos platform.
                      .
