@@ -12,7 +12,7 @@ dependencies:
           DISTRO: $(lsb_release -is | tr '[:upper:]' '[:lower:]')
           CODENAME: $(lsb_release -cs)
     - sudo apt-get -y update; true
-    - sudo apt-get install -y mesos protobuf libprotobuf-dev
+    - sudo apt-get install -y mesos libprotobuf-dev
     - cabal update
     - cabal sandbox init
     - cabal install --only-dependencies --enable-tests
