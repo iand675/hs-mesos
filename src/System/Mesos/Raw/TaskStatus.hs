@@ -45,7 +45,7 @@ instance CPPValue TaskStatus where
     tidP <- cppValue $ taskStatusTaskId s
     sidP <- maybe (return nullPtr) cppValue $ taskStatusSlaveId s
     (tmp, tml) <- maybeCString $ taskStatusMessage s
-    (tsd, tsl) <- maybeCString $ taskStatusData s
+    (tsd, tsl) <- maybeCString $ taskStatusData_ s
     eidP <- maybe (return nullPtr) cppValue $ taskStatusExecutorId s
     tsp <- alloc
     tsp' <- maybe (return nullPtr) (\x -> poke tsp (CDouble x) >> return tsp) $ taskStatusTimestamp s

@@ -55,7 +55,7 @@ instance CPPValue ExecutorInfo where
     rps <- mapM cppValue $ executorInfoResources i
     (np, nl) <- maybeCString $ executorInfoName i
     (sp, sl) <- maybeCString $ executorInfoSource i
-    (dp, dl) <- maybeCString $ executorInfoData i
+    (dp, dl) <- maybeCString $ executorInfoData_ i
     (rs, rLen) <- arrayLen rps
     liftIO $ c_toExecutorInfo eidP fidP ciP ctrP rs (fromIntegral rLen) np (fromIntegral nl) sp (fromIntegral sl) dp (fromIntegral dl)
 

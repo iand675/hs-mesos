@@ -58,7 +58,7 @@ instance CPPValue TaskInfo where
     cip <- maybe (return nullPtr) cppValue $ case taskInfoImplementation t of
                                                TaskCommand c -> Just c
                                                _ -> Nothing
-    (tdp, tdl) <- maybeCString $ taskInfoData t
+    (tdp, tdl) <- maybeCString $ taskInfoData_ t
     (rpp, rl) <- arrayLen rps
     ctrp <- maybe (return nullPtr) cppValue $ taskInfoContainer t
     hcp <- maybe (return nullPtr) cppValue $ taskInfoHealthCheck t

@@ -259,7 +259,7 @@ data ExecutorInfo = ExecutorInfo
   -- ^ Executor provided with a container will launch the container
   -- with the executor's 'CommandInfo' and we expect the container to
   -- act as a Mesos executor.
-  , executorInfoResources     :: ![Resource]
+  , executorInfoResources         :: ![Resource]
   , executorInfoName              :: !(Maybe ByteString)
   , executorInfoSource            :: !(Maybe ByteString)
   -- ^ Source is an identifier style string used by frameworks to track
@@ -269,7 +269,7 @@ data ExecutorInfo = ExecutorInfo
   -- NOTE: Source is exposed alongside the resource usage of the
   -- executor via JSON on the slave. This allows users to import
   -- usage information into a time series database for monitoring.
-  , executorInfoData              :: !(Maybe ByteString)
+  , executorInfoData_             :: !(Maybe ByteString)
   }
   deriving (Show, Eq)
 
@@ -502,7 +502,7 @@ data TaskInfo = TaskInfo
   , taskInfoSlaveId        :: !SlaveID
   , taskInfoResources      :: ![Resource]
   , taskInfoImplementation :: !TaskExecutionInfo
-  , taskInfoData           :: !(Maybe ByteString)
+  , taskInfoData_          :: !(Maybe ByteString)
   -- | Task provided with a container will launch the container as part
   -- of this task paired with the task's CommandInfo.
   , taskInfoContainer      :: !(Maybe ContainerInfo)
@@ -520,7 +520,7 @@ data TaskStatus = TaskStatus
   { taskStatusTaskId     :: !TaskID
   , taskStatusState      :: !TaskState
   , taskStatusMessage    :: !(Maybe ByteString) -- ^ Possible message explaining state.
-  , taskStatusData       :: !(Maybe ByteString)
+  , taskStatusData_      :: !(Maybe ByteString)
   , taskStatusSlaveId    :: !(Maybe SlaveID)
   , taskStatusExecutorId :: !(Maybe ExecutorID)
   , taskStatusTimestamp  :: !(Maybe Double)
