@@ -12,7 +12,9 @@ dependencies:
           DISTRO: $(lsb_release -is | tr '[:upper:]' '[:lower:]')
           CODENAME: $(lsb_release -cs)
     - sudo apt-get -y update; true
-    - sudo apt-get install -y mesos libprotobuf-dev
+    - sudo apt-get install -y mesos libprotobuf-dev g++-4.8
+    - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 50
+    - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 50
     - cabal update
     - cabal sandbox init
     - cabal install --only-dependencies --enable-tests
