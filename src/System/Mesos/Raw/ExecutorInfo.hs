@@ -2,6 +2,7 @@ module System.Mesos.Raw.ExecutorInfo where
 import           System.Mesos.Internal
 import           System.Mesos.Raw.CommandInfo
 import           System.Mesos.Raw.ContainerInfo
+import           System.Mesos.Raw.DiscoveryInfo
 import           System.Mesos.Raw.ExecutorId
 import           System.Mesos.Raw.FrameworkId
 import           System.Mesos.Raw.Resource
@@ -19,8 +20,7 @@ foreign import ccall unsafe "ext/types.h toExecutorInfo" c_toExecutorInfo
   -> CInt      -- ^ name length
   -> Ptr CChar -- ^ source
   -> CInt      -- ^ source length
-  -> Ptr CChar -- ^ data
-  -> CInt      -- ^ data length
+  -> DiscoveryInfoPtr -- ^ discoveryInfo
   -> IO ExecutorInfoPtr
 
 foreign import ccall unsafe "ext/types.h fromExecutorInfo" c_fromExecutorInfo
@@ -29,14 +29,13 @@ foreign import ccall unsafe "ext/types.h fromExecutorInfo" c_fromExecutorInfo
   -> Ptr FrameworkIDPtr
   -> Ptr CommandInfoPtr
   -> Ptr ContainerInfoPtr
-  -> Ptr (Ptr ResourcePtr)
-  -> Ptr CInt
-  -> Ptr (Ptr CChar)
-  -> Ptr CInt
-  -> Ptr (Ptr CChar)
-  -> Ptr CInt
-  -> Ptr (Ptr CChar)
-  -> Ptr CInt
+  -> Ptr (Ptr ResourcePtr) -- ^ resources
+  -> Ptr CInt -- ^ resources count
+  -> Ptr (Ptr CChar) -- ^ name
+  -> Ptr CInt -- ^ name length
+  -> Ptr (Ptr CChar) -- ^ source
+  -> Ptr CInt -- ^ source length
+  -> Ptr (Ptr DiscoveryInfo) -- ^ discovery info
   -> IO ()
 
 foreign import ccall unsafe "ext/types.h destroyExecutorInfo" c_destroyExecutorInfo
@@ -55,9 +54,9 @@ instance CPPValue ExecutorInfo where
     rps <- mapM cppValue $ executorInfoResources i
     (np, nl) <- maybeCString $ executorInfoName i
     (sp, sl) <- maybeCString $ executorInfoSource i
-    (dp, dl) <- maybeCString $ executorInfoData_ i
     (rs, rLen) <- arrayLen rps
-    liftIO $ c_toExecutorInfo eidP fidP ciP ctrP rs (fromIntegral rLen) np (fromIntegral nl) sp (fromIntegral sl) dp (fromIntegral dl)
+    discp <- maybe (return nullPtr) cppValue $ executorInfoDiscover i
+    liftIO $ c_toExecutorInfo eidP fidP ciP ctrP rs (fromIntegral rLen) np (fromIntegral nl) sp (fromIntegral sl) discp
 
   unmarshal ip = do
     eidP <- alloc
@@ -70,13 +69,13 @@ instance CPPValue ExecutorInfo where
     enL <- alloc
     esP <- alloc
     esL <- alloc
-    edP <- alloc
-    edL <- alloc
+    discP <- alloc
     poke enP nullPtr
     poke esP nullPtr
-    poke edP nullPtr
     poke cntP nullPtr
-    liftIO $ c_fromExecutorInfo ip eidP fidP ciP cntP rpP rpL enP enL esP esL edP edL
+    poke rpP nullPtr
+    poke discP nullPtr
+    liftIO $ c_fromExecutorInfo ip eidP fidP ciP cntP rpP rpL enP enL esP esL discP
     eid <- unmarshal =<< peek eidP
     fid <- unmarshal =<< peek fidP
     ci <- unmarshal =<< peek ciP
@@ -87,10 +86,12 @@ instance CPPValue ExecutorInfo where
     rs <- mapM unmarshal rps
     en <- peekMaybeBS enP enL
     es <- peekMaybeBS esP esL
-    ed <- peekMaybeBS edP edL
-    return $ ExecutorInfo eid fid ci cnt rs en es ed
+    disc <- peekMaybeCPP discP
+    return $ ExecutorInfo eid fid ci cnt rs en es disc
 
   destroy = c_destroyExecutorInfo
 
   equalExceptDefaults (ExecutorInfo id fid ci cnt rs n s d) (ExecutorInfo id' fid' ci' cnt' rs' n' s' d') =
-    id == id' && fid == fid' && equalExceptDefaults ci ci' && and (zipWith equalExceptDefaults rs rs') && n == n' && s == s' && d == d' && cnt == cnt'
+    id == id' && fid == fid' && equalExceptDefaults ci ci' &&
+    and (zipWith equalExceptDefaults rs rs') && n == n'&&
+    s == s' && d == d' && cnt == cnt'

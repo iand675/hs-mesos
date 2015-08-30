@@ -222,8 +222,10 @@ extern "C" {
 				char* data,
 				int dataLen,
 				ContainerInfoPtr containerInfo,
-				HealthCheckPtr healthCheck
-				);
+        HealthCheckPtr healthCheck,
+        LabelPtr* labels,
+        int labelsCount,
+        DiscoveryInfoPtr discovery);
 
   extern void fromTaskInfo(TaskInfoPtr taskInfo,
 			   char** infoName,
@@ -349,8 +351,7 @@ extern "C" {
 					int nameLen,
 					char* source,
 					int sourceLen,
-					char* data,
-					int dataLen);
+          DiscoveryInfoPtr discovery);
 
   extern void fromExecutorInfo(ExecutorInfoPtr executorInfo,
 			       ExecutorIDPtr* executorID,
@@ -363,8 +364,7 @@ extern "C" {
 			       int* nameLen,
 			       char** source,
 			       int* sourceLen,
-			       char** data,
-			       int* dataLen);
+             DiscoveryInfoPtr* discovery);
 
 	extern void destroyExecutorInfo(ExecutorInfoPtr executorInfo);
 
