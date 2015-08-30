@@ -310,18 +310,28 @@ extern "C" {
 
 	extern void destroyCredential(CredentialPtr credential);
 
-	extern ResourcePtr toResource(char* name,
-		int nameLen,
-		ValuePtr value,
-		char* role,
-		int roleLen);
+  extern ResourcePtr toResource(char* name,
+                         int nameLen,
+                         ValuePtr value,
+                         char* role,
+                         int roleLen,
+                         char* reservationPrincipal,
+                         int reservationPrincipalLen,
+                         char* diskInfoPersistence,
+                         int diskInfoPersistenceLen,
+                                VolumePtr diskInfoVolume);
 
-	extern void fromResource(ResourcePtr resource,
-		char** name,
-		int* nameLen,
-		ValuePtr* value,
-		char** role,
-		int* roleLen);
+  extern void fromResource(ResourcePtr resource,
+                    char** name,
+                    int* nameLen,
+                    ValuePtr* value,
+                    char** role,
+                    int* roleLen,
+                    char** reservationPrincipal,
+                    int* reservationPrincipalLen,
+                    char** diskInfoPersistence,
+                    int* diskInfoPersistenceLen,
+                           VolumePtr* diskInfoVolume);
 
 	extern void destroyResource(ResourcePtr resource);
 
