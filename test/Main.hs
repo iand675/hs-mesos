@@ -113,7 +113,13 @@ instance Arbitrary Attribute where
   arbitrary = Attribute <$> arbitrary <*> arbitrary
 
 instance Arbitrary Resource where
-  arbitrary = Resource <$> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = Resource
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary PerformanceStatistics where
   arbitrary = PerformanceStatistics
