@@ -24,6 +24,7 @@ module System.Mesos.Raw (
   module System.Mesos.Raw.Resource,
   module System.Mesos.Raw.ResourceStatistics,
   module System.Mesos.Raw.ResourceUsage,
+  module System.Mesos.Raw.ResourceUsageExecutor,
   module System.Mesos.Raw.Scheduler,
   module System.Mesos.Raw.SlaveId,
   module System.Mesos.Raw.SlaveInfo,
@@ -59,6 +60,7 @@ import           System.Mesos.Raw.Request
 import           System.Mesos.Raw.Resource
 import           System.Mesos.Raw.ResourceStatistics
 import           System.Mesos.Raw.ResourceUsage
+import           System.Mesos.Raw.ResourceUsageExecutor
 import           System.Mesos.Raw.Scheduler
 import           System.Mesos.Raw.SlaveId
 import           System.Mesos.Raw.SlaveInfo
