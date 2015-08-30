@@ -210,15 +210,35 @@ instance Arbitrary ResourceStatistics where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
+instance Arbitrary ResourceUsageExecutor where
+  arbitrary = ResourceUsageExecutor
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary ResourceUsage where
   arbitrary = ResourceUsage
     <$> arbitrary
-    <*> arbitrary
-    <*> arbitrary
-    <*> arbitrary
-    <*> arbitrary
-    <*> arbitrary
 
 instance Arbitrary Request where
   arbitrary = Request
@@ -407,6 +427,7 @@ testIDs = testGroup "Marshalling"
   , qcIM "Credential" (arbitrary :: Gen Credential)
   , qcIM "TaskStatus" (arbitrary :: Gen TaskStatus)
   , qcIM "ResourceUsage" (arbitrary :: Gen ResourceUsage)
+  , qcIM "ResourceUsageExecutor" (arbitrary :: Gen ResourceUsageExecutor)
   , qcIM "ResourceStatistics" (arbitrary :: Gen ResourceStatistics)
   , qcIM "Parameters" (arbitrary :: Gen Parameters)
   , qcIM "Attribute" (arbitrary :: Gen Attribute)

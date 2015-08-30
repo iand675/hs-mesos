@@ -26,6 +26,7 @@ typedef mesos::Attribute *AttributePtr;
 typedef mesos::Resource *ResourcePtr;
 typedef mesos::ResourceStatistics *ResourceStatisticsPtr;
 typedef mesos::ResourceUsage *ResourceUsagePtr;
+typedef mesos::ResourceUsage_Executor *ResourceUsage_ExecutorPtr;
 typedef mesos::Request *RequestPtr;
 typedef mesos::Offer *OfferPtr;
 typedef mesos::TaskInfo *TaskInfoPtr;
@@ -449,22 +450,23 @@ extern "C" {
 
 	extern void destroyCommandInfo(CommandInfoPtr info);
 
-	extern ResourceUsagePtr toResourceUsage(SlaveIDPtr slaveID,
-		FrameworkIDPtr frameworkID,
-		ExecutorIDPtr executorID,
-		char* executorName,
-		int nameLen,
-		TaskIDPtr taskID,
-		ResourceStatisticsPtr statistics);
-	
-	extern void fromResourceUsage(ResourceUsagePtr usage,
-		SlaveIDPtr* slaveID,
-		FrameworkIDPtr* frameworkID,
-		ExecutorIDPtr* executorID,
-		char** executorName,
-		int* nameLen,
-		TaskIDPtr* taskID,
-		ResourceStatisticsPtr* statistics);
+  extern ResourceUsage_ExecutorPtr toResourceUsage_Executor(ExecutorInfoPtr executorInfo,
+                                                            ResourcePtr* resources,
+                                                            int resourcesCount,
+                                                            ResourceStatisticsPtr statistics);
+  extern void fromResourceUsage_Executor(ResourceUsage_ExecutorPtr executor,
+                                         ExecutorInfoPtr* executorInfo,
+                                         ResourcePtr** resources,
+                                         int* resourcesCount,
+                                         ResourceStatisticsPtr* statistics);
+  extern void destroyResourceUsage_Executor(ResourceUsage_ExecutorPtr executor);
+
+  extern ResourceUsagePtr toResourceUsage(ResourceUsage_ExecutorPtr* executors,
+                                          int executorsCount);
+
+  extern void fromResourceUsage(ResourceUsagePtr usage,
+                                ResourceUsage_ExecutorPtr** executors,
+                                int* executorsCount);
 
 	extern void destroyResourceUsage(ResourceUsagePtr usage);
 
