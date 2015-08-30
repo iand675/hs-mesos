@@ -62,7 +62,8 @@ module System.Mesos.Types (
   -- ** Port
   Port(..),
   -- ** Discovery Info
-  DiscoveryInfo(..)
+  DiscoveryInfo(..),
+  Visibility(..)
 ) where
 import           Data.ByteString (ByteString)
 import           Data.String
