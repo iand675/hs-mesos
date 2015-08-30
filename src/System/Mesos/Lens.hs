@@ -44,3 +44,5 @@ makeFields ''Volume
 makeFields ''ContainerType
 makePrisms ''ContainerType
 makeFields ''ContainerInfo
+makeFields ''Port
+makeFields ''DiscoveryInfo
