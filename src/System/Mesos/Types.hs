@@ -33,6 +33,8 @@ module System.Mesos.Types (
   -- ** Task & Executor Status Updates
   Status(..),
   TaskStatus(..),
+  TaskStatusSource(..),
+  TaskStatusReason(..),
   TaskState(..),
   isTerminal,
   -- ** Identifiers
