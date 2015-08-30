@@ -23,6 +23,7 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary
 import           Test.QuickCheck.Monadic
 
+markCalled :: Num a => IORef a -> IO ()
 markCalled r = modifyIORef r (+1)
 
 beforeAndAfter :: (Show a, CPPValue a) => a -> IO a
@@ -381,6 +382,7 @@ prop_idempotentMarshalling g = monadicIO $ forAllM g $ \x -> do
 qcIM :: (Show a, Eq a, CPPValue a) => String -> Gen a -> TestTree
 qcIM n = testProperty n . prop_idempotentMarshalling
 
+testIDs :: TestTree
 testIDs = testGroup "Marshalling"
   [ qcIM "ExecutorInfo" (arbitrary :: Gen ExecutorInfo)
   , qcIM "TaskInfo" (arbitrary :: Gen TaskInfo)
@@ -415,10 +417,12 @@ testIDs = testGroup "Marshalling"
   , qcIM "Label" (arbitrary :: Gen Label)
   ]
 
+executorTests :: TestTree
 executorTests = testGroup "Executor"
   [
   ]
 
+schedulerTests :: TestTree
 schedulerTests = testGroup "Scheduler"
   [
   ]
