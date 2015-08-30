@@ -75,7 +75,11 @@ instance Arbitrary CommandValue where
     ]
 
 instance Arbitrary CommandInfo where
-  arbitrary = CommandInfo <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = CommandInfo
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary ExecutorInfo where
   arbitrary = ExecutorInfo
