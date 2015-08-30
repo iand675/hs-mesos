@@ -90,6 +90,7 @@ instance Arbitrary MasterInfo where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary SlaveInfo where
   arbitrary = SlaveInfo

@@ -141,7 +141,9 @@ extern "C" {
 				    char* pid,
 				    int pidLen,
 				    char* hostname,
-				    int hostnameLen);
+            int hostnameLen,
+            char* version,
+            int versionLen);
 
   extern void fromMasterInfo(MasterInfoPtr info,
 			     char** infoID,
@@ -151,10 +153,12 @@ extern "C" {
 			     char** pid,
 			     int* pidLen,
 			     char** hostname,
-			     int* hostnameLen);
+                             int* hostnameLen,
+  char** version,
+                             int* versionLen);
 
   extern void destroyMasterInfo(MasterInfoPtr info);
-  
+
 	extern SlaveInfoPtr toSlaveInfo(char* hostname,
 		int hostnameLen,
 		unsigned int* port,
