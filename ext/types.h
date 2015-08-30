@@ -245,16 +245,20 @@ extern "C" {
          DiscoveryInfoPtr* discovery);
 
   extern void destroyTaskInfo(TaskInfoPtr taskInfo);
-  
+
   extern TaskStatusPtr toTaskStatus(TaskIDPtr taskID,
 				    int state,
 				    char* message,
 				    int messageLen,
+            int* source,
+            int* reason,
 				    char* data,
 				    int dataLen,
 				    SlaveIDPtr slaveID,
 				    ExecutorIDPtr executorID,
 				    double* timestamp,
+            char* uuid,
+            int uuidLen,
 				    bool* healthCheck);
 
 	extern void fromTaskStatus(TaskStatusPtr status,
@@ -262,16 +266,22 @@ extern "C" {
 				   int* state,
 				   char** message,
 				   int* messageLen,
+           bool* sourceSet,
+           int* source,
+           bool* reasonSet,
+           int* reason,
 				   char** data,
 				   int* dataLen,
 				   SlaveIDPtr* slaveID,
 				   ExecutorIDPtr* executorID,
 				   bool* timestampSet,
 				   double* timestamp,
+           char** uuid,
+           int* uuidLen,
 				   bool* healthCheckSet,
 				   bool* healthCheck);
 
-	extern void destroyTaskStatus(TaskStatusPtr taskStatus);	
+	extern void destroyTaskStatus(TaskStatusPtr taskStatus);
 
 	extern FiltersPtr toFilters(double* refuseSeconds);
 

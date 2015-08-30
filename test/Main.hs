@@ -269,13 +269,52 @@ instance Arbitrary TaskInfo where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary TaskState where
-  arbitrary = elements [Staging, Starting, TaskRunning, Finished, Failed, Killed, Lost]
+  arbitrary = elements
+    [ Staging
+    , Starting
+    , TaskRunning
+    , Finished
+    , Failed
+    , Killed
+    , Lost
+    ]
+
+instance Arbitrary TaskStatusSource where
+  arbitrary = elements [SourceExecutor, SourceMaster, SourceSlave]
+
+instance Arbitrary TaskStatusReason where
+  arbitrary = elements
+    [ ReasonCommandExecutorFailed
+    , ReasonExecutorPreempted
+    , ReasonExecutorTerminated
+    , ReasonExecutorUnregistered
+    , ReasonFrameworkRemoved
+    , ReasonGCError
+    , ReasonInvalidFrameworkId
+    , ReasonInvalidOffers
+    , ReasonMasterDisconnected
+    , ReasonMemoryLimit
+    , ReasonReconcilation
+    , ReasonResourcesUnkown
+    , ReasonSlaveDisconnected
+    , ReasonSlaveRemoved
+    , ReasonSlaveRestarted
+    , ReasonSlaveUnkown
+    , ReasonTaskInvalid
+    , ReasonTaskUnauthorized
+    , ReasonTaskUnknown
+    ]
 
 instance Arbitrary TaskStatus where
   arbitrary = TaskStatus
     <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
