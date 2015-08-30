@@ -63,7 +63,11 @@ library
                        System.Mesos.Raw.Value,
                        System.Mesos.Raw.Volume
   -- other-extensions:    
-  build-depends:       base >=4.7 && < 5, bytestring, lens, managed, template-haskell
+  build-depends:         base >=4.7 && < 5
+                       , bytestring
+                       , lens
+                       , managed
+                       , template-haskell
   hs-source-dirs:      src
   default-language:    Haskell2010
   include-dirs:        ext, /usr/include, /usr/local/include/mesos
@@ -118,7 +122,15 @@ test-suite test
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
   hs-source-dirs:      test
-  build-depends:       base, hs-mesos, tasty, tasty-quickcheck, tasty-hunit, QuickCheck, bytestring, lens, managed
+  build-depends:         base
+                       , hs-mesos
+                       , tasty
+                       , tasty-quickcheck
+                       , tasty-hunit
+                       , QuickCheck
+                       , bytestring
+                       , lens
+                       , managed
   default-language:    Haskell2010
 
 executable test-executor
