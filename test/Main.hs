@@ -11,6 +11,7 @@ import           Foreign.C.Types
 import           System.Mesos.Internal
 import           System.Mesos.Raw.Attribute
 import           System.Mesos.Raw.Environment
+import           System.Mesos.Raw.Label
 import           System.Mesos.Raw.Parameter
 import           System.Mesos.Raw.Parameters
 import           System.Mesos.Scheduler
@@ -287,6 +288,29 @@ instance Arbitrary Parameters where
 instance Arbitrary Credential where
   arbitrary = Credential <$> arbitrary <*> arbitrary
 
+instance Arbitrary Port where
+  arbitrary = Port <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary Label where
+  arbitrary = Label <$> arbitrary
+
+instance Arbitrary DiscoveryInfo where
+  arbitrary = DiscoveryInfo
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
+instance Arbitrary Visibility where
+  arbitrary = elements
+    [ VisibilityFramework
+    , VisibilityCluster
+    , VisibilityExternal
+    ]
+
 idempotentMarshalling :: (Show a, Eq a, CPPValue a) => a -> IO a
 idempotentMarshalling x = with (cppValue x >>= unmarshal) return
 
@@ -336,6 +360,9 @@ testIDs = testGroup "Marshalling"
   , qcIM "Request" (arbitrary :: Gen Request)
   , qcIM "Offer" (arbitrary :: Gen Offer)
   , qcIM "SlaveInfo" (arbitrary :: Gen SlaveInfo)
+  , qcIM "DiscoveryInfo" (arbitrary :: Gen DiscoveryInfo)
+  , qcIM "Port" (arbitrary :: Gen Port)
+  , qcIM "Label" (arbitrary :: Gen Label)
   ]
 
 executorTests = testGroup "Executor"
