@@ -888,11 +888,11 @@ data Port = Port
 data DiscoveryInfo = DiscoveryInfo
   { discoveryInfoVisibility  :: !Visibility
   , discoveryInfoName        :: !(Maybe ByteString)
-  , discoveryInfoEnvironment :: !(Maybe [(ByteString, ByteString)])
+  , discoveryInfoEnvironment :: !(Maybe ByteString)
   , discoveryInfoLocation    :: !(Maybe ByteString)
   , discoveryInfoVersion     :: !(Maybe ByteString)
   , discoveryInfoPorts       :: ![Port]
-  , discoveryInfoLabels      :: !(Maybe [(ByteString, Maybe ByteString)])
+  , discoveryInfoLabels      :: ![(ByteString, Maybe ByteString)]
   } deriving (Show, Eq)
 
 data Visibility = VisibilityFramework
