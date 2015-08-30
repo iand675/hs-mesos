@@ -44,6 +44,10 @@ typedef mesos::Volume *VolumePtr;
 typedef mesos::ContainerInfo *ContainerInfoPtr;
 typedef std::string *StdStringPtr;
 
+typedef mesos::Label *LabelPtr;
+typedef mesos::Port *PortPtr;
+typedef mesos::DiscoveryInfo *DiscoveryInfoPtr;
+
 extern "C" {
 
 	extern FrameworkIDPtr toFrameworkID(char* bs, int len);
@@ -793,6 +797,63 @@ extern void fromPerfStatistics(PerfStatisticsPtr perf,
 			       CommandInfoPtr* command);
 
   extern void destroyHealthCheck (HealthCheckPtr p);
+
+  extern LabelPtr toLabel(char* key,
+                      int keyLen,
+                      char* value,
+                      int valueLen);
+
+  extern void fromLabel(LabelPtr l,
+                        char** key,
+                        int* keyLen,
+                        char** value,
+                        int* valueLen);
+
+  extern void destroyLabel(LabelPtr l);
+
+  extern PortPtr toPort(int number,
+                        char* name,
+                        int nameLen,
+                        char* protocol,
+                        int protocolLen);
+  extern void fromPort(PortPtr port,
+                       int* number,
+                       char** name,
+                       int* nameLen,
+                       char** protocol,
+                       int* protocolLen);
+  extern void destroyPort(PortPtr p);
+
+  extern DiscoveryInfoPtr toDiscoveryInfo(int visibility,
+                                          char* name,
+                                          int nameLen,
+                                          char* env,
+                                          int envLen,
+                                          char* location,
+                                          int locationLen,
+                                          char* version,
+                                          int versionLen,
+                                          PortPtr* ports,
+                                          int portsCount,
+                                          LabelPtr* labels,
+                                          int labelsCount);
+ extern void fromDiscoveryInfo(DiscoveryInfoPtr disc,
+                               int* visibility,
+                               char** name,
+                               int* nameLen,
+                               char** env,
+                               int* envLen,
+                               char** location,
+                               int* locationLen,
+                               char** version,
+                               int* versionLen,
+                               PortPtr** ports,
+                               int* portsCount,
+                               LabelPtr** labels,
+                               int* labelsCount);
+
+  extern void destroyDiscoveryInfo(DiscoveryInfoPtr disc);
 };
+
 
 #endif
