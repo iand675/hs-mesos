@@ -239,8 +239,10 @@ extern "C" {
 			   char** data,
 			   int* dataLen,
 			   ContainerInfoPtr* containerInfo,
-			   HealthCheckPtr* healthCheck
-			   );
+         HealthCheckPtr* healthCheck,
+         LabelPtr** labels,
+         int* labelsCount,
+         DiscoveryInfoPtr* discovery);
 
   extern void destroyTaskInfo(TaskInfoPtr taskInfo);
   

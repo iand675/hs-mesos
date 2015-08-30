@@ -2,8 +2,10 @@ module System.Mesos.Raw.TaskInfo where
 import           System.Mesos.Internal
 import           System.Mesos.Raw.CommandInfo
 import           System.Mesos.Raw.ContainerInfo
+import           System.Mesos.Raw.DiscoveryInfo
 import           System.Mesos.Raw.ExecutorInfo
 import           System.Mesos.Raw.HealthCheck
+import           System.Mesos.Raw.Label
 import           System.Mesos.Raw.Resource
 import           System.Mesos.Raw.SlaveId
 import           System.Mesos.Raw.TaskId
@@ -11,18 +13,21 @@ import           System.Mesos.Raw.TaskId
 type TaskInfoPtr = Ptr TaskInfo
 
 foreign import ccall unsafe "ext/types.h toTaskInfo" c_toTaskInfo
-  :: Ptr CChar
-  -> CInt
-  -> TaskIDPtr
-  -> SlaveIDPtr
-  -> Ptr ResourcePtr
-  -> CInt
+  :: Ptr CChar -- ^ name
+  -> CInt -- ^ name length
+  -> TaskIDPtr -- ^ task id
+  -> SlaveIDPtr -- ^ slave id
+  -> Ptr ResourcePtr -- ^ resources
+  -> CInt -- ^ resources count
   -> ExecutorInfoPtr
   -> CommandInfoPtr
-  -> Ptr CChar
-  -> CInt
+  -> Ptr CChar -- ^ data
+  -> CInt -- ^ dataLen
   -> ContainerInfoPtr
   -> HealthCheckPtr
+  -> Ptr LabelPtr -- ^ labels
+  -> CInt -- ^ labels count
+  -> DiscoveryInfoPtr
   -> IO TaskInfoPtr
 
 foreign import ccall unsafe "ext/types.h fromTaskInfo" c_fromTaskInfo
@@ -39,6 +44,9 @@ foreign import ccall unsafe "ext/types.h fromTaskInfo" c_fromTaskInfo
   -> Ptr CInt
   -> Ptr ContainerInfoPtr
   -> Ptr HealthCheckPtr
+  -> Ptr (Ptr LabelPtr)
+  -> Ptr CInt
+  -> Ptr DiscoveryInfoPtr
   -> IO ()
 
 foreign import ccall unsafe "ext/types.h destroyTaskInfo" c_destroyTaskInfo
@@ -62,9 +70,12 @@ instance CPPValue TaskInfo where
     (rpp, rl) <- arrayLen rps
     ctrp <- maybe (return nullPtr) cppValue $ taskInfoContainer t
     hcp <- maybe (return nullPtr) cppValue $ taskInfoHealthCheck t
-    liftIO $ c_toTaskInfo np (fromIntegral nl) tid sid rpp (fromIntegral rl) eip cip tdp (fromIntegral tdl) ctrp hcp
+    labelp <- mapM (cppValue . toLabel) $ taskInfoLabels t
+    (labelpp, labell) <- arrayLen labelp
+    discp <- maybe (return nullPtr) cppValue $ taskInfoDiscovery t
+    liftIO $ c_toTaskInfo np (fromIntegral nl) tid sid rpp (fromIntegral rl) eip cip tdp (fromIntegral tdl) ctrp hcp labelpp (fromIntegral labell) discp
 
-  unmarshal t = do
+  unmarshal ti = do
     npp <- alloc
     nlp <- alloc
     tpp <- alloc
@@ -77,12 +88,18 @@ instance CPPValue TaskInfo where
     dlp <- alloc
     cip <- alloc
     hcp <- alloc
+    labelpp <- alloc
+    labellp <- alloc
+    discp <- alloc
+    poke rpp nullPtr
     poke epp nullPtr
     poke cpp nullPtr
     poke dpp nullPtr
     poke cip nullPtr
     poke hcp nullPtr
-    liftIO $ c_fromTaskInfo t npp nlp tpp spp rpp rlp epp cpp dpp dlp cip hcp
+    poke labelpp nullPtr
+    poke discp nullPtr
+    liftIO $ c_fromTaskInfo ti npp nlp tpp spp rpp rlp epp cpp dpp dlp cip hcp labelpp labellp discp
     n <- peekCString (npp, nlp)
     tp <- peek tpp
     t <- peekCPP tp
@@ -103,12 +120,16 @@ instance CPPValue TaskInfo where
     d <- peekMaybeBS dpp dlp
     ci <- peekMaybeCPP cip
     hc <- peekMaybeCPP hcp
-    return $ TaskInfo n t s rs ei d ci hc
+    labelp <- peek labelpp
+    labels <- mapM peekCPP =<< peekArray (labelp, labellp)
+    disc <- peekMaybeCPP discp
+    return $ TaskInfo n t s rs ei d ci hc (map fromLabel labels) disc
 
   destroy = c_destroyTaskInfo
 
-  equalExceptDefaults (TaskInfo n id_ sid rs ei d ci hc) (TaskInfo n' id' sid' rs' ei' d' ci' hc') =
-    n == n' && id_ == id' && sid == sid' && ci == ci' && hc == hc' && d == d' && and (zipWith equalExceptDefaults rs rs') && case (ei, ei') of
+  equalExceptDefaults (TaskInfo n id_ sid rs ei d ci hc labels disc) (TaskInfo n' id' sid' rs' ei' d' ci' hc' labels' disc') =
+    n == n' && id_ == id' && sid == sid' && ci == ci' && hc == hc' && d == d' && and (zipWith equalExceptDefaults rs rs') && labels == labels' && disc == disc'
+    && case (ei, ei') of
       (TaskCommand c, TaskCommand c') -> equalExceptDefaults c c'
       (TaskExecutor e, TaskExecutor e') -> equalExceptDefaults e e'
       _ -> False
