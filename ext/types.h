@@ -122,7 +122,8 @@ extern "C" {
 	extern CommandURIPtr toCommandURI(char* cmd,
 					  int cmdLen,
 					  bool* executable,
-					  bool* extract);
+            bool* extract,
+            bool* cache);
 
 	extern void fromCommandURI(CommandURIPtr commandURI,
 				   char** cmd,
@@ -130,7 +131,9 @@ extern "C" {
 				   bool* executableSet,
 				   bool* executable,
 				   bool* extractSet,
-				   bool* extract);
+           bool* extract,
+           bool* cacheSet,
+           bool* cache);
 
 	extern void destroyCommandURI(CommandURIPtr commandURI);
 

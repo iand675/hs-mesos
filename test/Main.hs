@@ -61,7 +61,11 @@ instance Arbitrary FrameworkInfo where
     <*> arbitrary
 
 instance Arbitrary CommandURI where
-  arbitrary = CommandURI <$> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = CommandURI
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary CommandValue where
   arbitrary = oneof

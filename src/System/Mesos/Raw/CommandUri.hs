@@ -4,20 +4,23 @@ import           System.Mesos.Internal
 type CommandURIPtr = Ptr CommandURI
 
 foreign import ccall unsafe "ext/types.h toCommandURI" c_toCommandURI
-  :: Ptr CChar
-  -> CInt
-  -> Ptr CBool
-  -> Ptr CBool
+  :: Ptr CChar -- cmd
+  -> CInt      -- cmdLen
+  -> Ptr CBool -- executable
+  -> Ptr CBool -- extract
+  -> Ptr CBool -- cache
   -> IO CommandURIPtr
 
 foreign import ccall unsafe "ext/types.h fromCommandURI" c_fromCommandURI
-  :: CommandURIPtr
-  -> Ptr (Ptr CChar)
-  -> Ptr CInt
-  -> Ptr CBool
-  -> Ptr CBool
-  -> Ptr CBool
-  -> Ptr CBool
+  :: CommandURIPtr -- commandURI
+  -> Ptr (Ptr CChar) -- cmd
+  -> Ptr CInt -- cmdLen
+  -> Ptr CBool -- executableSet
+  -> Ptr CBool -- executable
+  -> Ptr CBool -- extractSet
+  -> Ptr CBool -- extract
+  -> Ptr CBool -- cacheSet
+  -> Ptr CBool -- cache
   -> IO ()
 
 foreign import ccall unsafe "ext/types.h destroyCommandURI" c_destroyCommandURI
@@ -30,7 +33,8 @@ instance CPPValue CommandURI where
     (vp, vl) <- cstring $ commandURIValue cu
     exec <- allocMaybe $ fmap toCBool $ commandURIExecutable cu
     extract <- allocMaybe $ fmap toCBool $ commandURIExtract cu
-    liftIO $ c_toCommandURI vp (fromIntegral vl) exec extract
+    cache <- allocMaybe $ fmap toCBool $ commandURICache cu
+    liftIO $ c_toCommandURI vp (fromIntegral vl) exec extract cache
 
   unmarshal cup = do
     (uriPP, uriLenP) <- arrayPair
@@ -43,14 +47,20 @@ instance CPPValue CommandURI where
     poke extractSetP 0
     extractP <- alloc
 
-    liftIO $ c_fromCommandURI cup uriPP uriLenP exeSetP exeP extractSetP extractP
+    cacheSetP <- alloc
+    poke cacheSetP 0
+    cacheP <- alloc
+
+    liftIO $ c_fromCommandURI cup uriPP uriLenP exeSetP exeP extractSetP extractP cacheSetP cacheP
     uri <- peekCString (uriPP, uriLenP)
 
     mset <- peekMaybePrim exeP exeSetP
     mextract <- peekMaybePrim extractP extractSetP
+    mcache <- peekMaybePrim cacheP cacheSetP
 
     return $ CommandURI uri (fmap fromCBool mset) (fmap fromCBool mextract)
+               (fmap fromCBool mcache)
 
   destroy = c_destroyCommandURI
 
-  equalExceptDefaults (CommandURI uri ms mx) (CommandURI uri' ms' mx') = uri == uri' && ms == ms' && defEq True mx mx'
+  equalExceptDefaults (CommandURI uri ms mx mc) (CommandURI uri' ms' mx' mc') = uri == uri' && ms == ms' && defEq True mx mx' && mc == mc'
