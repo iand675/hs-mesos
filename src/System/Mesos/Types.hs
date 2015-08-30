@@ -522,7 +522,7 @@ data ResourceStatistics = ResourceStatistics
   , resourceStatisticsNetTcpRttMicroSecsP99        :: !(Maybe Double)
 
   , resourceStatisticsNetTcpActiveConnections      :: !(Maybe Double)
-  , resourceStatisticsNetTcpTimeWaiConnections     :: !(Maybe Double)
+  , resourceStatisticsNetTcpTimeWaitConnections     :: !(Maybe Double)
 
   , resourceStatisticsNetTrafficControlStats       :: ![TrafficControlStatistics]
   -- ^ Network traffic flowing into or out of a container can be delayed
@@ -871,7 +871,7 @@ data ContainerInfo = ContainerInfo
 data Port = Port
   { portNumber   :: !Word32
   , portName     :: !(Maybe ByteString)
-  , portProtocal :: !(Maybe ByteString)
+  , portProtocol :: !(Maybe ByteString)
   } deriving (Show, Eq)
 
 -- |  Service discovery information.
