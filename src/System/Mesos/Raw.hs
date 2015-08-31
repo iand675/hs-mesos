@@ -23,6 +23,7 @@ module System.Mesos.Raw (
   module System.Mesos.Raw.Request,
   module System.Mesos.Raw.Resource,
   module System.Mesos.Raw.ResourceStatistics,
+  module System.Mesos.Raw.TrafficControlStatistics,
   module System.Mesos.Raw.ResourceUsage,
   module System.Mesos.Raw.ResourceUsageExecutor,
   module System.Mesos.Raw.Scheduler,
@@ -59,6 +60,7 @@ import           System.Mesos.Raw.Port
 import           System.Mesos.Raw.Request
 import           System.Mesos.Raw.Resource
 import           System.Mesos.Raw.ResourceStatistics
+import           System.Mesos.Raw.TrafficControlStatistics
 import           System.Mesos.Raw.ResourceUsage
 import           System.Mesos.Raw.ResourceUsageExecutor
 import           System.Mesos.Raw.Scheduler

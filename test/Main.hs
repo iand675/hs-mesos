@@ -131,6 +131,19 @@ instance Arbitrary Resource where
     <*> arbitrary
     <*> arbitrary
 
+instance Arbitrary TrafficControlStatistics where
+  arbitrary = TrafficControlStatistics
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
 instance Arbitrary PerformanceStatistics where
   arbitrary = PerformanceStatistics
     <$> arbitrary
@@ -429,6 +442,7 @@ testIDs = testGroup "Marshalling"
   , qcIM "ResourceUsage" (arbitrary :: Gen ResourceUsage)
   , qcIM "ResourceUsageExecutor" (arbitrary :: Gen ResourceUsageExecutor)
   , qcIM "ResourceStatistics" (arbitrary :: Gen ResourceStatistics)
+  , qcIM "TrafficControlStatistics" (arbitrary :: Gen TrafficControlStatistics)
   , qcIM "PerformanceStatistics" (arbitrary :: Gen TrafficControlStatistics)
   , qcIM "Parameters" (arbitrary :: Gen Parameters)
   , qcIM "Attribute" (arbitrary :: Gen Attribute)
