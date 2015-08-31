@@ -81,4 +81,4 @@ instance CPPValue Resource where
     where
       textToSet (Text t) (Set s) = [t] == s
       textToSet (Set s) (Text t) = [t] == s
-      textToSet v v' = equalExceptDefaults v v'
+      textToSet x y = equalExceptDefaults x y
