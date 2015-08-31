@@ -429,6 +429,7 @@ testIDs = testGroup "Marshalling"
   , qcIM "ResourceUsage" (arbitrary :: Gen ResourceUsage)
   , qcIM "ResourceUsageExecutor" (arbitrary :: Gen ResourceUsageExecutor)
   , qcIM "ResourceStatistics" (arbitrary :: Gen ResourceStatistics)
+  , qcIM "PerformanceStatistics" (arbitrary :: Gen TrafficControlStatistics)
   , qcIM "Parameters" (arbitrary :: Gen Parameters)
   , qcIM "Attribute" (arbitrary :: Gen Attribute)
   , qcIM "Resource" (arbitrary :: Gen Resource)
