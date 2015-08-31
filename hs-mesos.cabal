@@ -61,6 +61,7 @@ library
                        System.Mesos.Raw.TaskId,
                        System.Mesos.Raw.TaskInfo,
                        System.Mesos.Raw.TaskStatus,
+                       System.Mesos.Raw.TrafficControlStatistics,
                        System.Mesos.Raw.Value,
                        System.Mesos.Raw.Volume
   -- other-extensions:    
@@ -112,6 +113,7 @@ library
                        ext/types/task_id.cpp,
                        ext/types/task_info.cpp,
                        ext/types/task_status.cpp,
+                       ext/types/traffic_control_statistics.cpp,
                        ext/types/value.cpp,
                        ext/types/volume.cpp
 
