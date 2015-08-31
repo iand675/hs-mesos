@@ -32,6 +32,7 @@ makePrisms ''Value
 makeFields ''Resource
 makeFields ''ResourceStatistics
 makeFields ''ResourceUsage
+makeFields ''ResourceUsageExecutor
 makeFields ''PerformanceStatistics
 makeFields ''Request
 makeFields ''Offer

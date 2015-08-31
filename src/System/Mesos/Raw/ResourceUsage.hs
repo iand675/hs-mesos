@@ -33,3 +33,6 @@ instance CPPValue ResourceUsage where
     return $ ResourceUsage exes
 
   destroy = c_destroyResourceUsage
+
+  equalExceptDefaults (ResourceUsage exes) (ResourceUsage exes') =
+    and $ zipWith equalExceptDefaults exes exes'

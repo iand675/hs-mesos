@@ -46,4 +46,15 @@ instance CPPValue ResourceUsageExecutor where
     resources <- mapM unmarshal =<< peekArray (resP, resl)
     stats <- peekMaybeCPP statsPP
     return $ ResourceUsageExecutor exeInfo resources stats
+
   destroy = c_destroyResourceUsage_Executor
+
+  equalExceptDefaults (ResourceUsageExecutor info resources mStat)
+                      (ResourceUsageExecutor info' resources' mStat') =
+    equalExceptDefaults info info' &&
+    and (zipWith equalExceptDefaults resources resources') &&
+    case (mStat, mStat') of
+       (Nothing, Nothing) -> True
+       (Nothing, _) -> False
+       (_, Nothing) -> False
+       (Just s, Just s') -> equalExceptDefaults s s'
