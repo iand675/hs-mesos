@@ -25,7 +25,9 @@ typedef mesos::Value_Text *Value_TextPtr;
 typedef mesos::Attribute *AttributePtr;
 typedef mesos::Resource *ResourcePtr;
 typedef mesos::ResourceStatistics *ResourceStatisticsPtr;
+typedef mesos::TrafficControlStatistics *TrafficControlStatisticsPtr;
 typedef mesos::ResourceUsage *ResourceUsagePtr;
+typedef mesos::ResourceUsage_Executor *ResourceUsage_ExecutorPtr;
 typedef mesos::Request *RequestPtr;
 typedef mesos::Offer *OfferPtr;
 typedef mesos::TaskInfo *TaskInfoPtr;
@@ -43,6 +45,10 @@ typedef mesos::PerfStatistics *PerfStatisticsPtr;
 typedef mesos::Volume *VolumePtr;
 typedef mesos::ContainerInfo *ContainerInfoPtr;
 typedef std::string *StdStringPtr;
+
+typedef mesos::Label *LabelPtr;
+typedef mesos::Port *PortPtr;
+typedef mesos::DiscoveryInfo *DiscoveryInfoPtr;
 
 extern "C" {
 
@@ -118,7 +124,8 @@ extern "C" {
 	extern CommandURIPtr toCommandURI(char* cmd,
 					  int cmdLen,
 					  bool* executable,
-					  bool* extract);
+            bool* extract,
+            bool* cache);
 
 	extern void fromCommandURI(CommandURIPtr commandURI,
 				   char** cmd,
@@ -126,7 +133,9 @@ extern "C" {
 				   bool* executableSet,
 				   bool* executable,
 				   bool* extractSet,
-				   bool* extract);
+           bool* extract,
+           bool* cacheSet,
+           bool* cache);
 
 	extern void destroyCommandURI(CommandURIPtr commandURI);
 
@@ -137,7 +146,9 @@ extern "C" {
 				    char* pid,
 				    int pidLen,
 				    char* hostname,
-				    int hostnameLen);
+            int hostnameLen,
+            char* version,
+            int versionLen);
 
   extern void fromMasterInfo(MasterInfoPtr info,
 			     char** infoID,
@@ -147,10 +158,12 @@ extern "C" {
 			     char** pid,
 			     int* pidLen,
 			     char** hostname,
-			     int* hostnameLen);
+                             int* hostnameLen,
+  char** version,
+                             int* versionLen);
 
   extern void destroyMasterInfo(MasterInfoPtr info);
-  
+
 	extern SlaveInfoPtr toSlaveInfo(char* hostname,
 		int hostnameLen,
 		unsigned int* port,
@@ -214,8 +227,10 @@ extern "C" {
 				char* data,
 				int dataLen,
 				ContainerInfoPtr containerInfo,
-				HealthCheckPtr healthCheck
-				);
+        HealthCheckPtr healthCheck,
+        LabelPtr* labels,
+        int labelsCount,
+        DiscoveryInfoPtr discovery);
 
   extern void fromTaskInfo(TaskInfoPtr taskInfo,
 			   char** infoName,
@@ -229,20 +244,26 @@ extern "C" {
 			   char** data,
 			   int* dataLen,
 			   ContainerInfoPtr* containerInfo,
-			   HealthCheckPtr* healthCheck
-			   );
+         HealthCheckPtr* healthCheck,
+         LabelPtr** labels,
+         int* labelsCount,
+         DiscoveryInfoPtr* discovery);
 
   extern void destroyTaskInfo(TaskInfoPtr taskInfo);
-  
+
   extern TaskStatusPtr toTaskStatus(TaskIDPtr taskID,
 				    int state,
 				    char* message,
 				    int messageLen,
+            int* source,
+            int* reason,
 				    char* data,
 				    int dataLen,
 				    SlaveIDPtr slaveID,
 				    ExecutorIDPtr executorID,
 				    double* timestamp,
+            char* uuid,
+            int uuidLen,
 				    bool* healthCheck);
 
 	extern void fromTaskStatus(TaskStatusPtr status,
@@ -250,16 +271,22 @@ extern "C" {
 				   int* state,
 				   char** message,
 				   int* messageLen,
+           bool* sourceSet,
+           int* source,
+           bool* reasonSet,
+           int* reason,
 				   char** data,
 				   int* dataLen,
 				   SlaveIDPtr* slaveID,
 				   ExecutorIDPtr* executorID,
 				   bool* timestampSet,
 				   double* timestamp,
+           char** uuid,
+           int* uuidLen,
 				   bool* healthCheckSet,
 				   bool* healthCheck);
 
-	extern void destroyTaskStatus(TaskStatusPtr taskStatus);	
+	extern void destroyTaskStatus(TaskStatusPtr taskStatus);
 
 	extern FiltersPtr toFilters(double* refuseSeconds);
 
@@ -306,18 +333,28 @@ extern "C" {
 
 	extern void destroyCredential(CredentialPtr credential);
 
-	extern ResourcePtr toResource(char* name,
-		int nameLen,
-		ValuePtr value,
-		char* role,
-		int roleLen);
+  extern ResourcePtr toResource(char* name,
+                         int nameLen,
+                         ValuePtr value,
+                         char* role,
+                         int roleLen,
+                         char* reservationPrincipal,
+                         int reservationPrincipalLen,
+                         char* diskInfoPersistence,
+                         int diskInfoPersistenceLen,
+                                VolumePtr diskInfoVolume);
 
-	extern void fromResource(ResourcePtr resource,
-		char** name,
-		int* nameLen,
-		ValuePtr* value,
-		char** role,
-		int* roleLen);
+  extern void fromResource(ResourcePtr resource,
+                    char** name,
+                    int* nameLen,
+                    ValuePtr* value,
+                    char** role,
+                    int* roleLen,
+                    char** reservationPrincipal,
+                    int* reservationPrincipalLen,
+                    char** diskInfoPersistence,
+                    int* diskInfoPersistenceLen,
+                           VolumePtr* diskInfoVolume);
 
 	extern void destroyResource(ResourcePtr resource);
 
@@ -331,8 +368,7 @@ extern "C" {
 					int nameLen,
 					char* source,
 					int sourceLen,
-					char* data,
-					int dataLen);
+          DiscoveryInfoPtr discovery);
 
   extern void fromExecutorInfo(ExecutorInfoPtr executorInfo,
 			       ExecutorIDPtr* executorID,
@@ -345,8 +381,7 @@ extern "C" {
 			       int* nameLen,
 			       char** source,
 			       int* sourceLen,
-			       char** data,
-			       int* dataLen);
+             DiscoveryInfoPtr* discovery);
 
 	extern void destroyExecutorInfo(ExecutorInfoPtr executorInfo);
 
@@ -416,22 +451,23 @@ extern "C" {
 
 	extern void destroyCommandInfo(CommandInfoPtr info);
 
-	extern ResourceUsagePtr toResourceUsage(SlaveIDPtr slaveID,
-		FrameworkIDPtr frameworkID,
-		ExecutorIDPtr executorID,
-		char* executorName,
-		int nameLen,
-		TaskIDPtr taskID,
-		ResourceStatisticsPtr statistics);
-	
-	extern void fromResourceUsage(ResourceUsagePtr usage,
-		SlaveIDPtr* slaveID,
-		FrameworkIDPtr* frameworkID,
-		ExecutorIDPtr* executorID,
-		char** executorName,
-		int* nameLen,
-		TaskIDPtr* taskID,
-		ResourceStatisticsPtr* statistics);
+  extern ResourceUsage_ExecutorPtr toResourceUsage_Executor(ExecutorInfoPtr executorInfo,
+                                                            ResourcePtr* resources,
+                                                            int resourcesCount,
+                                                            ResourceStatisticsPtr statistics);
+  extern void fromResourceUsage_Executor(ResourceUsage_ExecutorPtr executor,
+                                         ExecutorInfoPtr* executorInfo,
+                                         ResourcePtr** resources,
+                                         int* resourcesCount,
+                                         ResourceStatisticsPtr* statistics);
+  extern void destroyResourceUsage_Executor(ResourceUsage_ExecutorPtr executor);
+
+  extern ResourceUsagePtr toResourceUsage(ResourceUsage_ExecutorPtr* executors,
+                                          int executorsCount);
+
+  extern void fromResourceUsage(ResourceUsagePtr usage,
+                                ResourceUsage_ExecutorPtr** executors,
+                                int* executorsCount);
 
 	extern void destroyResourceUsage(ResourceUsagePtr usage);
 
@@ -461,74 +497,166 @@ extern "C" {
 		int* idsLen);
 
 	extern void destroyOffer(OfferPtr offer);
-  
-  extern void destroyResourceStatistics(ResourceStatisticsPtr statistics);
 
   extern ResourceStatisticsPtr toResourceStatistics(double timestamp,
-						    double* cpusUserTimeSecs,
-						    double* cpusSystemTimeSecs,
-						    double cpusLimit,
-						    unsigned int* cpusPeriods,
-						    unsigned int* cpusThrottled,
-						    double* cpusThrottledTimeSecs,
-						    unsigned long* memoryResidentSetSize,
-						    unsigned long* memoryLimitBytes,
-						    unsigned long* memoryFileBytes,
-						    unsigned long* memoryAnonymousBytes,
-						    unsigned long* memoryMappedFileBytes,
-						    PerfStatisticsPtr perfStatistics,
-						    unsigned long* netRxPackets,
-						    unsigned long* netRxBytes,
-						    unsigned long* netRxErrors,
-						    unsigned long* netRxDropped,
-						    unsigned long* netTxPackets,
-						    unsigned long* netTxBytes,
-						    unsigned long* netTxErrors,
-						    unsigned long* netTxDropped
-						    );
+                                           unsigned int* processes,
+                                           unsigned int* threads,
+                                           double* cpusUserTimeSecs,
+                                           double* cpusSystemTimeSecs,
+                                           double cpusLimit,
+                                           unsigned int* cpusPeriods,
+                                           unsigned int* cpusThrottled,
+                                           double* cpusThrottledTimeSecs,
+                                           unsigned long* memoryTotalBytes,
+                                           unsigned long* memoryTotalMemSwBytes,
+                                           unsigned long* memoryLimitBytes,
+                                           unsigned long* memorySoftLimitBytes,
+                                           unsigned long* memoryFileBytes,
+                                           unsigned long* memoryAnonymousBytes,
+                                           unsigned long* memoryCacheBytes,
+                                           unsigned long* memoryRssBytes,
+                                           unsigned long* memoryMappedFileBytes,
+                                           unsigned long* memorySwapBytes,
+                                           unsigned long* memoryLowPressureCounter,
+                                           unsigned long* memoryMediumPressureCounter,
+                                           unsigned long* memoryCriticalPressureCounter,
+                                           unsigned long* diskLimitBytes,
+                                           unsigned long* diskUsedBytes,
+                                           PerfStatisticsPtr perfStatistics,
+                                           unsigned long* netRxPackets,
+                                           unsigned long* netRxBytes,
+                                           unsigned long* netRxErrors,
+                                           unsigned long* netRxDropped,
+                                           unsigned long* netTxPackets,
+                                           unsigned long* netTxBytes,
+                                           unsigned long* netTxErrors,
+                                           unsigned long* netTxDropped,
+                                           double* netTcpRttMicroSecsP50,
+                                           double* netTcpRttMicroSecsP90,
+                                           double* netTcpRttMicroSecsP95,
+                                           double* netTcpRttMicroSecsP99,
+                                           double* netTcpActiveConn,
+                                           double* netTcpTimeWaitConn,
+                                           TrafficControlStatisticsPtr* netTrafficControlStats,
+                                           int trafficStatsCount
+                                           );
 
   extern void fromResourceStatistics(ResourceStatisticsPtr stats,
-				     double* timestamp,
-				     double* cpusUserTimeSecs,
-				     bool* cpusUserTimeSecsSet,
-				     double* cpusSystemTimeSecs,
-				     bool* cpusSystemTimeSecsSet,
-				     double* cpusLimit,
-				     unsigned int* cpusPeriods,
-				     bool* cpusPeriodsSet,
-				     unsigned int* cpusThrottled,
-				     bool* cpusThrottledSet,
-				     double* cpusThrottledTimeSecs,
-				     bool* cpusThrottledTimeSecsSet,
-				     unsigned long* memoryResidentSetSize,
-				     bool* memoryResidentSetSizeSet,
-				     unsigned long* memoryLimitBytes,
-				     bool* memoryLimitBytesSet,
-				     unsigned long* memoryFileBytes,
-				     bool* memoryFileBytesSet,
-				     unsigned long* memoryAnonymousBytes,
-				     bool* memoryAnonymousBytesSet,
-				     unsigned long* memoryMappedFileBytes,
-				     bool* memoryMappedFileBytesSet,
-				     PerfStatisticsPtr* perfStatistics,
-				     unsigned long* netRxPackets,
-				     bool* netRxPacketsSet, 
-				     unsigned long* netRxBytes,
-				     bool* netRxBytesSet, 
-				     unsigned long* netRxErrors,
-				     bool* netRxErrorsSet, 
-				     unsigned long* netRxDropped,
-				     bool* netRxDroppedSet, 
-				     unsigned long* netTxPackets,
-				     bool* netTxPacketsSet, 
-				     unsigned long* netTxBytes,
-				     bool* netTxBytesSet, 
-				     unsigned long* netTxErrors,
-				     bool* netTxErrorsSet, 
-				     unsigned long* netTxDropped,
-				     bool* netTxDroppedSet
-				     );
-  
+                            double* timestamp,
+                            unsigned int* processes,
+                            bool* processesSet,
+                            unsigned int* threads,
+                            bool* threadsSet,
+                            double* cpusUserTimeSecs,
+                            bool* cpusUserTimeSecsSet,
+                            double* cpusSystemTimeSecs,
+                            bool* cpusSystemTimeSecsSet,
+                            double* cpusLimit,
+                            unsigned int* cpusPeriods,
+                            bool* cpusPeriodsSet,
+                            unsigned int* cpusThrottled,
+                            bool* cpusThrottledSet,
+                            double* cpusThrottledTimeSecs,
+                            bool* cpuThrottledTimeSecsSet,
+                            unsigned long* memoryTotalBytes,
+                            bool* memoryTotalBytesSet,
+                            unsigned long* memoryTotalMemSwBytes,
+                            bool* memoryTotalMemSwBytesSet,
+                            unsigned long* memoryLimitBytes,
+                            bool* memoryLimitBytesSet,
+                            unsigned long* memorySoftLimitBytes,
+                            bool* memorySoftLimitBytesSet,
+                            unsigned long* memoryFileBytes,
+                            bool* memoryFileBytesSet,
+                            unsigned long* memoryAnonymousBytes,
+                            bool* memoryAnonymousBytesSet,
+                            unsigned long* memoryCacheBytes,
+                            bool* memoryCacheBytesSet,
+                            unsigned long* memoryRssBytes,
+                            bool* memoryRssBytesSet,
+                            unsigned long* memoryMappedFileBytes,
+                            bool* memoryMappedFileBytesSet,
+                            unsigned long* memorySwapBytes,
+                            bool* memorySwapBytesSet,
+                            unsigned long* memoryLowPressureCounter,
+                            bool* memoryLowPressureCounterSet,
+                            unsigned long* memoryMediumPressureCounter,
+                            bool* memoryMediumPressureCounterSet,
+                            unsigned long* memoryCriticalPressureCounter,
+                            bool* memoryCriticalPressureCounterSet,
+                            unsigned long* diskLimitBytes,
+                            bool* diskLimitBytesSet,
+                            unsigned long* diskUsedBytes,
+                            bool* diskUsedBytesSet,
+                            PerfStatisticsPtr* perfStatistics,
+                            unsigned long* netRxPackets,
+                            bool* netRxPacketsSet,
+                            unsigned long* netRxBytes,
+                            bool* netRxBytesSet,
+                            unsigned long* netRxErrors,
+                            bool* netRxErrorsSet,
+                            unsigned long* netRxDropped,
+                            bool* netRxDroppedSet,
+                            unsigned long* netTxPackets,
+                            bool* netTxPacketsSet,
+                            unsigned long* netTxBytes,
+                            bool* netTxBytesSet,
+                            unsigned long* netTxErrors,
+                            bool* netTxErrorsSet,
+                            unsigned long* netTxDropped,
+                            bool* netTxDroppedSet,
+                            double* netTcpRttMicroSecsP50,
+                            bool* netTcpRttMicroSecsP50Set,
+                            double* netTcpRttMicroSecsP90,
+                            bool* netTcpRttMicroSecsP90Set,
+                            double* netTcpRttMicroSecsP95,
+                            bool* netTcpRttMicroSecsP95Set,
+                            double* netTcpRttMicroSecsP99,
+                            bool* netTcpRttMicroSecsP99Set,
+                            double* netTcpActiveConn,
+                            bool* netTcpActiveConnSet,
+                            double* netTcpTimeWaitConn,
+                            bool* netTcpTimeWaitConnSet,
+                            TrafficControlStatisticsPtr** netTrafficControlStats,
+                            int* trafficStatsCount
+                                     );
+
+  extern void destroyResourceStatistics(ResourceStatisticsPtr statistics);
+
+  extern TrafficControlStatisticsPtr toTrafficControlStatistics(char* id,
+                                                                int idLen,
+                                                                unsigned long* backlog,
+                                                                unsigned long* bytes,
+                                                                unsigned long* drops,
+                                                                unsigned long* overlimits,
+                                                                unsigned long* packets,
+                                                                unsigned long* qlen,
+                                                                unsigned long* ratebps,
+                                                                unsigned long* ratepps,
+                                                                unsigned long* requeues);
+  extern void fromTrafficControlStatistics(TrafficControlStatisticsPtr tcs,
+                                  char** id,
+                                  int* idLen,
+                                  unsigned long* backlog,
+                                  bool* backlogSet,
+                                  unsigned long* bytes,
+                                  bool* bytesSet,
+                                  unsigned long* drops,
+                                  bool* dropsSet,
+                                  unsigned long* overlimits,
+                                  bool* overlimitsSet,
+                                  unsigned long* packets,
+                                  bool* packetsSet,
+                                  unsigned long* qlen,
+                                  bool* qlenSet,
+                                  unsigned long* ratebps,
+                                  bool* ratebpsSet,
+                                  unsigned long* ratepps,
+                                  bool* rateppsSet,
+                                  unsigned long* requeues,
+                                  bool* requeuesSet);
+  extern void destroyTrafficControlStatistics(TrafficControlStatisticsPtr tcs);
+
 
 	extern ParameterPtr toParameter(char* key,
 		int keyLen,
@@ -772,7 +900,7 @@ extern void fromPerfStatistics(PerfStatisticsPtr perf,
 			      unsigned int* consecutiveFailures,
 			      double* gracePeriodSeconds,
 				       CommandInfoPtr command);
-  
+
   extern void fromHealthCheck (HealthCheckPtr p,
 		    bool* hasHTTP,
 		    int* port,
@@ -793,6 +921,63 @@ extern void fromPerfStatistics(PerfStatisticsPtr perf,
 			       CommandInfoPtr* command);
 
   extern void destroyHealthCheck (HealthCheckPtr p);
+
+  extern LabelPtr toLabel(char* key,
+                      int keyLen,
+                      char* value,
+                      int valueLen);
+
+  extern void fromLabel(LabelPtr l,
+                        char** key,
+                        int* keyLen,
+                        char** value,
+                        int* valueLen);
+
+  extern void destroyLabel(LabelPtr l);
+
+  extern PortPtr toPort(int number,
+                        char* name,
+                        int nameLen,
+                        char* protocol,
+                        int protocolLen);
+  extern void fromPort(PortPtr port,
+                       int* number,
+                       char** name,
+                       int* nameLen,
+                       char** protocol,
+                       int* protocolLen);
+  extern void destroyPort(PortPtr p);
+
+  extern DiscoveryInfoPtr toDiscoveryInfo(int visibility,
+                                          char* name,
+                                          int nameLen,
+                                          char* env,
+                                          int envLen,
+                                          char* location,
+                                          int locationLen,
+                                          char* version,
+                                          int versionLen,
+                                          PortPtr* ports,
+                                          int portsCount,
+                                          LabelPtr* labels,
+                                          int labelsCount);
+ extern void fromDiscoveryInfo(DiscoveryInfoPtr disc,
+                               int* visibility,
+                               char** name,
+                               int* nameLen,
+                               char** env,
+                               int* envLen,
+                               char** location,
+                               int* locationLen,
+                               char** version,
+                               int* versionLen,
+                               PortPtr** ports,
+                               int* portsCount,
+                               LabelPtr** labels,
+                               int* labelsCount);
+
+  extern void destroyDiscoveryInfo(DiscoveryInfoPtr disc);
 };
+
 
 #endif

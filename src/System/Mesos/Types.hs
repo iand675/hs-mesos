@@ -28,9 +28,13 @@ module System.Mesos.Types (
   Value(..),
   Resource(..),
   resource,
+  -- ** Traffic Control Statistics
+  TrafficControlStatistics(..),
   -- ** Task & Executor Status Updates
   Status(..),
   TaskStatus(..),
+  TaskStatusSource(..),
+  TaskStatusReason(..),
   TaskState(..),
   isTerminal,
   -- ** Identifiers
@@ -51,11 +55,17 @@ module System.Mesos.Types (
   -- ** Resource Usage & Performance Statistics
   ResourceStatistics(..),
   ResourceUsage(..),
+  ResourceUsageExecutor(..),
   PerformanceStatistics(..),
   -- ** Task Status
   -- ** Credentials & ACLs
   Credential(..),
-  credential
+  credential,
+  -- ** Port
+  Port(..),
+  -- ** Discovery Info
+  DiscoveryInfo(..),
+  Visibility(..)
 ) where
 import           Data.ByteString (ByteString)
 import           Data.String
@@ -175,6 +185,8 @@ data FrameworkInfo = FrameworkInfo
   , frameworkInfoRole            :: !(Maybe ByteString)
   , frameworkInfoHostname        :: !(Maybe ByteString)
   , frameworkInfoPrincipal       :: !(Maybe ByteString)
+  -- TODO:
+  -- , frameworkInfoWebUIURL       :: !(Maybe ByteString)
   }
   deriving (Show, Eq)
 
@@ -182,7 +194,7 @@ frameworkInfo :: ByteString -> ByteString -> FrameworkInfo
 frameworkInfo u n = FrameworkInfo u n Nothing Nothing Nothing Nothing Nothing Nothing
 
 data HealthCheckStrategy
-   = HTTPCheck
+   = HTTPCheck -- ^ Describes an HTTP health check. This is not fully implemented and not recommended for use - see MESOS-2533.
      { healthCheckStrategyPort     :: !Word32 -- ^ Port to send the HTTP request.
      , healthCheckStrategyPath     :: !(Maybe ByteString) -- ^ HTTP request path. (defaults to @"/"@.
      , healthCheckStrategyStatuses :: ![Word32] -- ^ Expected response statuses. Not specifying any statuses implies that any returned status is acceptable.
@@ -211,16 +223,16 @@ data HealthCheck = HealthCheck
 -- working directory.  In addition, any environment variables are set before
 -- executing the command (so they can be used to "parameterize" your command).
 data CommandInfo = CommandInfo
-  { commandInfoUris    :: ![CommandURI]
+  { commandInfoUris        :: ![CommandURI]
   , commandInfoEnvironment :: !(Maybe [(ByteString, ByteString)])
   , commandInfoValue       :: !CommandValue
   -- TODO: Existing field in 0.20, but doesn't actually work
   -- , commandContainer   :: !(Maybe ContainerInfo)
 
-  -- | Enables executor and tasks to run as a specific user. If the user
+  , commandInfoUser        :: !(Maybe ByteString)
+  -- ^ Enables executor and tasks to run as a specific user. If the user
   -- field is present both in 'FrameworkInfo' and here, the 'CommandInfo'
   -- user value takes precedence.
-  , commandInfoUser        :: !(Maybe ByteString)
   }
   deriving (Show, Eq)
 
@@ -230,12 +242,27 @@ commandInfo v = CommandInfo [] Nothing v Nothing
 data CommandURI = CommandURI
   { commandURIValue      :: !ByteString
   , commandURIExecutable :: !(Maybe Bool)
+
   , commandURIExtract    :: !(Maybe Bool)
+    -- ^ In case the fetched file is recognized as an archive, extract
+    -- its contents into the sandbox. Note that a cached archive is
+    -- not copied from the cache to the sandbox in case extraction
+    -- originates from an archive in the cache.
+  , commandURICache      :: !(Maybe Bool)
+    -- ^ If this field is "true", the fetcher cache will be used. If not,
+    -- fetching bypasses the cache and downloads directly into the
+    -- sandbox directory, no matter whether a suitable cache file is
+    -- available or not. The former directs the fetcher to download to
+    -- the file cache, then copy from there to the sandbox. Subsequent
+    -- fetch attempts with the same URI will omit downloading and copy
+    -- from the cache as long as the file is resident there. Cache files
+    -- may get evicted at any time, which then leads to renewed
+    -- downloading.
   }
   deriving (Show, Eq)
 
 commandURI :: ByteString -> CommandURI
-commandURI v = CommandURI v Nothing Nothing
+commandURI v = CommandURI v Nothing Nothing Nothing
 
 {-
 TODO: not yet supported (0.20)
@@ -249,7 +276,7 @@ data CommandValue = ShellCommand !ByteString
                   | RawCommand !ByteString ![ByteString]
                   deriving (Show, Eq)
 
--- Describes information about an executor. The 'executorData' field can be
+-- | Describes information about an executor. The 'executorData' field can be
 -- used to pass arbitrary bytes to an executor.
 data ExecutorInfo = ExecutorInfo
   { executorInfoExecutorId    :: !ExecutorID
@@ -269,7 +296,11 @@ data ExecutorInfo = ExecutorInfo
   -- NOTE: Source is exposed alongside the resource usage of the
   -- executor via JSON on the slave. This allows users to import
   -- usage information into a time series database for monitoring.
-  , executorInfoData_             :: !(Maybe ByteString)
+  , executorInfoDiscover      :: !(Maybe DiscoveryInfo)
+  -- ^ Service discovery information for the executor. It is not
+  -- interpreted or acted upon by Mesos. It is up to a service
+  -- discovery system to use this information as needed and to handle
+  -- executors without service discovery information.
   }
   deriving (Show, Eq)
 
@@ -285,11 +316,12 @@ data MasterInfo = MasterInfo
   , masterInfoPort     :: !(Maybe Word32) -- ^ Defaults to 5050
   , masterInfoPid      :: !(Maybe ByteString)
   , masterInfoHostname :: !(Maybe ByteString)
+  , masterInfoVersion  :: !(Maybe ByteString)
   }
   deriving (Show, Eq)
 
 masterInfo :: ByteString -> Word32 -> MasterInfo
-masterInfo id ip = MasterInfo id ip Nothing Nothing Nothing
+masterInfo mid ip = MasterInfo mid ip Nothing Nothing Nothing Nothing
 
 -- | Describes a slave. Note that the 'slaveInfoSlaveID' field is only available after
 -- a slave is registered with the master, and is made available here
@@ -298,7 +330,7 @@ masterInfo id ip = MasterInfo id ip Nothing Nothing Nothing
 -- information (if a framework has checkpointing enabled).
 data SlaveInfo = SlaveInfo
   { slaveInfoHostname   :: !ByteString
-  , slaveInfoPort       :: !(Maybe Word32)
+  , slaveInfoPort       :: !(Maybe Word32) -- ^Defaults to 5051
   , slaveInfoResources  :: ![Resource]
   , slaveInfoAttributes :: ![(ByteString, Value)]
   , slaveInfoSlaveId    :: !(Maybe SlaveID)
@@ -342,17 +374,89 @@ data Value
 -- N.B. there is a slight deviation from the C++ API: the Haskell bindings convert 'Text' values
 -- into a single element 'Set' value in order to avoid having to expose yet another data type.
 data Resource = Resource
-  { resourceName  :: !ByteString
-  , resourceValue :: !Value
-  , resourceRole  :: !(Maybe ByteString)
+  { resourceName                     :: !ByteString
+  , resourceValue                    :: !Value
+  , resourceRole                     :: !(Maybe ByteString)
+  , resourceReservationInfoPrincipal :: !(Maybe ByteString)
+  -- ^ Describes a dynamic reservation. A dynamic reservation is
+  -- acquired by an operator via the '/reserve' HTTP endpoint or by
+  -- a framework via the offer cycle by sending back an
+  -- 'Offer::Operation::Reserve' message.
+  -- NOTE: We currently do not allow frameworks with role "*" to
+  -- make dynamic reservations.
+
+  -- | Describes a persistent disk volume.
+  -- A persistent disk volume will not be automatically garbage
+  -- collected if the task/executor/slave terminates, but is
+  -- re-offered to the framework(s) belonging to the 'role'.
+  -- A framework can set the ID (if it is not set yet) to express
+  -- the intention to create a new persistent disk volume from a
+  -- regular disk resource. To reuse a previously created volume, a
+  -- framework can launch a task/executor when it receives an offer
+  -- with a persistent volume, i.e., ID is set.
+  -- NOTE: Currently, we do not allow a persistent disk volume
+  -- without a reservation (i.e., 'role' should not be '*').
+  , resourceDiskInfoPersistence      :: !(Maybe ByteString)
+  -- ^ A unique ID for the persistent disk volume.
+  -- NOTE: The ID needs to be unique per role on each slave.
+  , resourceDiskInfoVolume           :: !(Maybe Volume)
+  -- ^ Describes how this disk resource will be mounted in the
+  -- container. If not set, the disk resource will be used as the
+  -- sandbox. Otherwise, it will be mounted according to the
+  -- 'container_path' inside 'volume'. The 'host_path' inside
+  -- 'volume' is ignored.
+  -- NOTE: If 'volume' is set but 'persistence' is not set, the
+  -- volume will be automatically garbage collected after
+  -- task/executor terminates. Currently, if 'persistence' is set,
+  -- 'volume' must be set.
   }
   deriving (Show, Eq)
 
 resource :: ByteString -> Value -> Resource
-resource n v = Resource n v Nothing
+resource n v = Resource n v Nothing Nothing Nothing Nothing
 
+-- | When the network bandwidth caps are enabled and the container
+-- is over its limit, outbound packets may be either delayed or
+-- dropped completely either because it exceeds the maximum bandwidth
+-- allocation for a single container (the cap) or because the combined
+-- network traffic of multiple containers on the host exceeds the
+-- transmit capacity of the host (the share). We can report the
+-- following statistics for each of these conditions exported directly
+-- from the Linux Traffic Control Queueing Discipline.
+--
+-- id         : name of the limiter, e.g. 'tx_bw_cap'
+-- backlog    : number of packets currently delayed
+-- bytes      : total bytes seen
+-- drops      : number of packets dropped in total
+-- overlimits : number of packets which exceeded allocation
+-- packets    : total packets seen
+-- qlen       : number of packets currently queued
+-- rate_bps   : throughput in bytes/sec
+-- rate_pps   : throughput in packets/sec
+-- requeues   : number of times a packet has been delayed due to
+--              locking or device contention issues
+--
+-- More information on the operation of Linux Traffic Control can be
+-- found at http://www.lartc.org/lartc.html.
+data TrafficControlStatistics = TrafficControlStatistics
+  { trafficControlStatisticsIDId'      :: !ByteString
+  , trafficControlStatisticsBacklog    :: !(Maybe Word64)
+  , trafficControlStatisticsBytes      :: !(Maybe Word64)
+  , trafficControlStatisticsDrops      :: !(Maybe Word64)
+  , trafficControlStatisticsOverlimits :: !(Maybe Word64)
+  , trafficControlStatisticsPackets    :: !(Maybe Word64)
+  , trafficControlStatisticsQlen       :: !(Maybe Word64)
+  , trafficControlStatisticsRatebps    :: !(Maybe Word64)
+  , trafficControlStatisticsRatepps    :: !(Maybe Word64)
+  , trafficControlStatisticsRequeues   :: !(Maybe Word64)
+  } deriving (Show, Eq)
+
+
+-- | A snapshot of resource usage statistics.
 data ResourceStatistics = ResourceStatistics
   { resourceStatisticsTimestamp          :: !Double
+  , resourceStatisticsProcesses          :: !(Maybe Word32)
+  , resourceStatisticsThreads            :: !(Maybe Word32)
   , resourceStatisticsCpusUserTimeSecs   :: !(Maybe Double)
   -- ^ Total CPU time spent in user mode
   , resourceStatisticsCpusSystemTimeSecs :: !(Maybe Double)
@@ -365,13 +469,43 @@ data ResourceStatistics = ResourceStatistics
   -- ^ cpu.stat on process throttling (for contention issues).
   , resourceStatisticsCpusThrottledTimeSecs        :: !(Maybe Double)
   -- ^ cpu.stat on process throttling (for contention issues).
-  , resourceStatisticsMemoryResidentSetSize        :: !(Maybe Word64)
-  -- ^ Resident set size
+  , resourceStatisticsMemoryTotalBytes             :: !(Maybe Word64)
+  -- ^ MemoryTotalBytes was added in 0.23.0 to represent the total memory
+  -- of a process in RAM (as opposed to in Swap). This was previously
+  -- reported as mem_rss_bytes, which was also changed in 0.23.0 to
+  -- represent only the anonymous memory usage, to keep in sync with
+  -- Linux kernel's (arguably erroneous) use of terminology.
+  , resourceStatisticsMemoryTotalMemSwBytes        :: !(Maybe Word64)
+  -- ^ Total memory + swap usage. This is set if swap is enabled.
   , resourceStatisticsMemoryLimitBytes             :: !(Maybe Word64)
   -- ^ Amount of memory resources allocated.
+  , resourceStatisticsMemorySoftLimitBytes         :: !(Maybe Word64)
+  -- ^ Soft memory limit for a container.
   , resourceStatisticsMemoryFileBytes              :: !(Maybe Word64)
+  -- ^ Deprecated in 0.23.0, will be removed in 0.24.0
   , resourceStatisticsMemoryAnonymousBytes         :: !(Maybe Word64)
+  -- ^ Deprecated in 0.23.0, will be removed in 0.24.0
+  , resourceStatisticsMemoryCacheBytes             :: !(Maybe Word64)
+  -- ^ mem_cache_bytes is added in 0.23.0 to represent page cache usage.
+  , resourceStatisticsMemoryRssBytes               :: !(Maybe Word64)
+  -- ^ Since 0.23.0, mem_rss_bytes is changed to represent only
+  -- anonymous memory usage. Note that neither its requiredness, type,
+  -- name nor numeric tag has been changed.
   , resourceStatisticsMemoryMappedFileBytes        :: !(Maybe Word64)
+  , resourceStatisticsMemorySwapBytes              :: !(Maybe Word64)
+  -- ^ This is only set if swap is enabled.
+  , resourceStatisticsMemoryLowPressureCounter     :: !(Maybe Word64)
+  -- ^ Number of occurrences of different levels of memory pressure
+  -- events reported by memory cgroup. Pressure listening (re)starts
+  -- with these values set to 0 when slave (re)starts. See
+  -- https://www.kernel.org/doc/Documentation/cgroups/memory.txt for
+  -- more details.
+  , resourceStatisticsMemoryMediumPressureCounter  :: !(Maybe Word64)
+  , resourceStatisticsMemoryCriticalPressureCounter :: !(Maybe Word64)
+  , resourceStatisticsDiskLimitBytes               :: !(Maybe Word64)
+  -- ^ Disk Usage Information for executor working directory.
+  , resourceStatisticsDiskUsedBytes                :: !(Maybe Word64)
+  -- ^ Disk Usage Information for executor working directory.
   , resourceStatisticsPerformanceStatistics        :: !(Maybe PerformanceStatistics)
   , resourceStatisticsNetRxPackets                 :: !(Maybe Word64)
   , resourceStatisticsNetRxBytes                   :: !(Maybe Word64)
@@ -381,30 +515,55 @@ data ResourceStatistics = ResourceStatistics
   , resourceStatisticsNetTxBytes                   :: !(Maybe Word64)
   , resourceStatisticsNetTxErrors                  :: !(Maybe Word64)
   , resourceStatisticsNetTxDropped                 :: !(Maybe Word64)
+
+  , resourceStatisticsNetTcpRttMicroSecsP50        :: !(Maybe Double)
+  -- ^ The kernel keeps track of RTT (round-trip time) for its TCP
+  -- sockets. RTT is a way to tell the latency of a container.
+  , resourceStatisticsNetTcpRttMicroSecsP90        :: !(Maybe Double)
+  , resourceStatisticsNetTcpRttMicroSecsP95        :: !(Maybe Double)
+  , resourceStatisticsNetTcpRttMicroSecsP99        :: !(Maybe Double)
+
+  , resourceStatisticsNetTcpActiveConnections      :: !(Maybe Double)
+  , resourceStatisticsNetTcpTimeWaitConnections     :: !(Maybe Double)
+
+  , resourceStatisticsNetTrafficControlStats       :: ![TrafficControlStatistics]
+  -- ^ Network traffic flowing into or out of a container can be delayed
+  -- or dropped due to congestion or policy inside and outside the
+  -- container.
   }
   deriving (Show, Eq)
 
 -- | Describes a snapshot of the resource usage for an executor.
---
--- Resource usage is for an executor. For tasks launched with
--- an explicit executor, the executor id is provided. For tasks
--- launched without an executor, our internal executor will be
--- used. In this case, we provide the task id here instead, in
--- order to make this message easier for schedulers to work with.
 data ResourceUsage = ResourceUsage
-  { resourceUsageSlaveId      :: !SlaveID
-  , resourceUsageFrameworkId  :: !FrameworkID
-  , resourceUsageExecutorId   :: !(Maybe ExecutorID) -- ^ If present, this executor was explicitly specified.
-  , resourceUsageExecutorName :: !(Maybe ByteString) -- ^ If present, this executor was explicitly specified.
-  , resourceUsageTaskId       :: !(Maybe TaskID) -- ^ If present, this task did not have an executor.
-  , resourceUsageStatistics   :: !(Maybe ResourceStatistics)
-  -- ^  If missing, the isolation module cannot provide resource usage.
+  { resourceUsageExecutors :: ![ResourceUsageExecutor]
   }
   deriving (Show, Eq)
 
+data ResourceUsageExecutor = ResourceUsageExecutor
+  { resourceUsageExecutorExecutorInfo :: !ExecutorInfo
+  , resourceUsageExecutorAllocated    :: ![Resource]
+  -- ^ This includes resources used by the executor itself
+  -- as well as its active tasks.
+  , resourceUsageExecutorStatistics   :: !(Maybe ResourceStatistics)
+  -- ^ Current resource usage. If absent, the containerizer
+  -- cannot provide resource usage.
+  } deriving (Show, Eq)
+
+-- |Describes a sample of events from "perf stat". Only available on
+-- Linux.
+--
+-- NOTE: Each optional field matches the name of a perf event (see
+-- "perf list") with the following changes:
+-- 1. Names are downcased.
+-- 2. Hyphens ('-') are replaced with underscores ('_').
+-- 3. Events with alternate names use the name "perf stat" returns,
+--    e.g., for the event "cycles OR cpu-cycles" perf always returns
+--    cycles.
 data PerformanceStatistics = PerformanceStatistics
-  { performanceStatisticsTimestamp              :: !Double -- ^ Start of sample interval, in seconds since the Epoch.
-  , performanceStatisticsDuration               :: !Double -- ^ Duration of sample interval, in seconds.
+  { performanceStatisticsTimestamp              :: !Double
+  -- ^ Start of sample interval, in seconds since the Epoch.
+  , performanceStatisticsDuration               :: !Double
+  -- ^ Duration of sample interval, in seconds.
 
   -- | Hardware events
   , performanceStatisticsCycles                 :: !(Maybe Word64)
@@ -485,6 +644,15 @@ data Offer = Offer
   }
   deriving (Show, Eq)
 
+-- Not used ?!
+{- data OfferOperation = OfferLaunch ![TaskInfo]
+                    | OfferReserve ![Resource] -- resources
+                    | OfferUnreserver ![Resource] -- resources
+                    | OfferCreate ![Resource] -- volumes
+                    | OfferDestroy ![Resource] -- volumes
+                    deriving (Show, Eq)
+-}
+
 data TaskExecutionInfo
   = TaskCommand !CommandInfo
   | TaskExecutor !ExecutorInfo
@@ -503,33 +671,120 @@ data TaskInfo = TaskInfo
   , taskInfoResources      :: ![Resource]
   , taskInfoImplementation :: !TaskExecutionInfo
   , taskInfoData_          :: !(Maybe ByteString)
-  -- | Task provided with a container will launch the container as part
-  -- of this task paired with the task's CommandInfo.
   , taskInfoContainer      :: !(Maybe ContainerInfo)
-  -- | A health check for the task (currently in *alpha* and initial
-  -- support will only be for TaskInfo's that have a CommandInfo).
+  -- ^ Task provided with a container will launch the container as part
+  -- of this task paired with the task's CommandInfo.
   , taskInfoHealthCheck    :: !(Maybe HealthCheck)
+  -- ^ A health check for the task (currently in *alpha* and initial
+  -- support will only be for TaskInfo's that have a CommandInfo).
+  , taskInfoLabels         :: ![(ByteString, Maybe ByteString)]
+  -- ^ Labels are free-form key value pairs which are exposed through
+  -- master and slave endpoints. Labels will not be interpreted or
+  -- acted upon by Mesos itself. As opposed to the data field, labels
+  -- will be kept in memory on master and slave processes. Therefore,
+  -- labels should be used to tag tasks with light-weight meta-data.
+  , taskInfoDiscovery      :: !(Maybe DiscoveryInfo)
   }
   deriving (Show, Eq)
 
 taskInfo :: ByteString -> TaskID -> SlaveID -> [Resource] -> TaskExecutionInfo -> TaskInfo
-taskInfo n t s rs i = TaskInfo n t s rs i Nothing Nothing Nothing
+taskInfo n t s rs i = TaskInfo n t s rs i Nothing Nothing Nothing [] Nothing
 
 -- | Describes the current status of a task.
 data TaskStatus = TaskStatus
   { taskStatusTaskId     :: !TaskID
   , taskStatusState      :: !TaskState
   , taskStatusMessage    :: !(Maybe ByteString) -- ^ Possible message explaining state.
+  , taskStatusSource     :: !(Maybe TaskStatusSource)
+  , taskStatusReason     :: !(Maybe TaskStatusReason)
   , taskStatusData_      :: !(Maybe ByteString)
   , taskStatusSlaveId    :: !(Maybe SlaveID)
   , taskStatusExecutorId :: !(Maybe ExecutorID)
   , taskStatusTimestamp  :: !(Maybe Double)
-  -- | Describes whether the task has been determined to be healthy
+  , taskStatusUUID       :: !(Maybe ByteString)
+  , taskStatusHealthy    :: !(Maybe Bool)
+  -- ^ Describes whether the task has been determined to be healthy
   -- (true) or unhealthy (false) according to the HealthCheck field in
   -- the command info.
-  , taskStatusHealthy    :: !(Maybe Bool)
   }
   deriving (Show, Eq)
+
+-- | Describes the source of the task status update.
+data TaskStatusSource = SourceMaster
+                      | SourceSlave
+                      | SourceExecutor
+                      deriving (Show, Eq)
+
+instance Enum TaskStatusSource where
+  fromEnum SourceMaster   = 0
+  fromEnum SourceSlave    = 1
+  fromEnum SourceExecutor = 2
+  toEnum 0 = SourceMaster
+  toEnum 1 = SourceSlave
+  toEnum 2 = SourceExecutor
+  toEnum _ = error "value not supported for TaskStatusSource"
+
+-- | Detailed reason for the task status update.
+data TaskStatusReason = ReasonCommandExecutorFailed
+                      | ReasonExecutorPreempted
+                      | ReasonExecutorTerminated
+                      | ReasonExecutorUnregistered
+                      | ReasonFrameworkRemoved
+                      | ReasonGCError
+                      | ReasonInvalidFrameworkId
+                      | ReasonInvalidOffers
+                      | ReasonMasterDisconnected
+                      | ReasonMemoryLimit
+                      | ReasonReconcilation
+                      | ReasonResourcesUnkown
+                      | ReasonSlaveDisconnected
+                      | ReasonSlaveRemoved
+                      | ReasonSlaveRestarted
+                      | ReasonSlaveUnkown
+                      | ReasonTaskInvalid
+                      | ReasonTaskUnauthorized
+                      | ReasonTaskUnknown
+                      deriving (Show, Eq)
+
+instance Enum TaskStatusReason where
+  fromEnum ReasonCommandExecutorFailed = 0
+  fromEnum ReasonExecutorPreempted     = 17
+  fromEnum ReasonExecutorTerminated    = 1
+  fromEnum ReasonExecutorUnregistered  = 2
+  fromEnum ReasonFrameworkRemoved      = 3
+  fromEnum ReasonGCError               = 4
+  fromEnum ReasonInvalidFrameworkId    = 5
+  fromEnum ReasonInvalidOffers         = 6
+  fromEnum ReasonMasterDisconnected    = 7
+  fromEnum ReasonMemoryLimit           = 8
+  fromEnum ReasonReconcilation         = 9
+  fromEnum ReasonResourcesUnkown       = 18
+  fromEnum ReasonSlaveDisconnected     = 10
+  fromEnum ReasonSlaveRemoved          = 11
+  fromEnum ReasonSlaveRestarted        = 12
+  fromEnum ReasonSlaveUnkown           = 13
+  fromEnum ReasonTaskInvalid           = 14
+  fromEnum ReasonTaskUnauthorized      = 15
+  fromEnum ReasonTaskUnknown           = 16
+  toEnum 0  = ReasonCommandExecutorFailed
+  toEnum 17 = ReasonExecutorPreempted
+  toEnum 1  = ReasonExecutorTerminated
+  toEnum 2  = ReasonExecutorUnregistered
+  toEnum 3  = ReasonFrameworkRemoved
+  toEnum 4  = ReasonGCError
+  toEnum 5  = ReasonInvalidFrameworkId
+  toEnum 6  = ReasonInvalidOffers
+  toEnum 7  = ReasonMasterDisconnected
+  toEnum 8  = ReasonMemoryLimit
+  toEnum 9  = ReasonReconcilation
+  toEnum 18 = ReasonResourcesUnkown
+  toEnum 10 = ReasonSlaveDisconnected
+  toEnum 11 = ReasonSlaveRemoved
+  toEnum 12 = ReasonSlaveRestarted
+  toEnum 13 = ReasonSlaveUnkown
+  toEnum 14 = ReasonTaskInvalid
+  toEnum 15 = ReasonTaskUnauthorized
+  toEnum 16 = ReasonTaskUnknown
 
 -- | Credential used for authentication.
 --
@@ -552,9 +807,21 @@ data ACLEntity = Some ![ByteString]
                | Any
                | None
                deriving (Show, Eq)
-data RegisterFrameworkACL = RegisterFrameworkACL { registerFrameworkACLPrincipals :: ACLEntity, registerFrameworkACLRoles :: ACLEntity } deriving (Show, Eq)
-data RunTaskACL = RunTaskACL { runTaskACLPrincipals :: ACLEntity, runTaskACLUsers :: ACLEntity } deriving (Show, Eq)
-data ShutdownFrameworkACL = ShutdownFrameworkACL { shutdownFrameworkACLPrincipals :: ACLEntity, shutdownFrameworkACLFrameworkPrincipals :: ACLEntity } deriving (Show, Eq)
+
+data RegisterFrameworkACL = RegisterFrameworkACL
+  { registerFrameworkACLPrincipals :: ACLEntity
+  , registerFrameworkACLRoles :: ACLEntity
+  } deriving (Show, Eq)
+
+data RunTaskACL = RunTaskACL
+  { runTaskACLPrincipals :: ACLEntity
+  , runTaskACLUsers :: ACLEntity
+  } deriving (Show, Eq)
+
+data ShutdownFrameworkACL = ShutdownFrameworkACL
+  { shutdownFrameworkACLPrincipals :: ACLEntity
+  , shutdownFrameworkACLFrameworkPrincipals :: ACLEntity
+  } deriving (Show, Eq)
 
 data ACLSettings = ACLSettings
   { aclSettingsPermissive         :: !(Maybe Bool)
@@ -572,7 +839,7 @@ data RateLimit = RateLimit
 data RateLimits = RateLimits
   { rateLimitsRateLimits               :: ![RateLimit]
   , rateLimitsAggregateDefaultQPS      :: !(Maybe Double)
-  , rateLimitsAggregateDefaultCapacity :: !(Maybe Double)
+  , rateLimitsAggregateDefaultCapacity :: !(Maybe Word64)
   } deriving (Show, Eq)
 
 data Mode = ReadWrite -- ^ Mount the volume in R/W mode
@@ -600,3 +867,45 @@ data ContainerInfo = ContainerInfo
   { containerInfoContainerType :: !ContainerType
   , containerInfoVolumes       :: ![Volume]
   } deriving (Show, Eq)
+
+
+-- | Named port used for service discovery.
+data Port = Port
+  { portNumber   :: !Word32
+  , portName     :: !(Maybe ByteString)
+  , portProtocol :: !(Maybe ByteString)
+  } deriving (Show, Eq)
+
+-- |  Service discovery information.
+-- The visibility field restricts discovery within a framework
+-- (FRAMEWORK), within a Mesos cluster (CLUSTER), or  places no
+-- restrictions (EXTERNAL).
+-- The environment, location, and version fields provide first class
+-- support for common attributes used to differentiate between
+-- similar services. The environment may receive values such as
+-- PROD/QA/DEV, the location field may receive values like
+-- EAST-US/WEST-US/EUROPE/AMEA, and the version field may receive
+-- values like v2.0/v0.9. The exact use of these fields is up to each
+-- service discovery system.
+data DiscoveryInfo = DiscoveryInfo
+  { discoveryInfoVisibility  :: !Visibility
+  , discoveryInfoName        :: !(Maybe ByteString)
+  , discoveryInfoEnvironment :: !(Maybe ByteString)
+  , discoveryInfoLocation    :: !(Maybe ByteString)
+  , discoveryInfoVersion     :: !(Maybe ByteString)
+  , discoveryInfoPorts       :: ![Port]
+  , discoveryInfoLabels      :: ![(ByteString, Maybe ByteString)]
+  } deriving (Show, Eq)
+
+data Visibility = VisibilityFramework
+                | VisibilityCluster
+                | VisibilityExternal
+                deriving (Show, Eq)
+
+instance Enum Visibility where
+  fromEnum VisibilityFramework = 0
+  fromEnum VisibilityCluster   = 1
+  fromEnum VisibilityExternal  = 2
+  toEnum 0 = VisibilityFramework
+  toEnum 1 = VisibilityCluster
+  toEnum 2 = VisibilityExternal

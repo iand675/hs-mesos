@@ -71,25 +71,25 @@ text = prism' Text $ \x -> case x of
                              _ -> Nothing
 
 cpus :: Prism' Resource Double
-cpus = prism' (\x -> Resource "cpus" (Scalar x) (Just "*")) $ \r ->
+cpus = prism' (\x -> Resource "cpus" (Scalar x) (Just "*") Nothing Nothing Nothing) $ \r ->
   if resourceName r == "cpus"
      then r ^? value . scalar
      else Nothing
 
 mem :: Prism' Resource Double
-mem = prism' (\x -> Resource "mem" (Scalar x) (Just "*")) $ \r ->
+mem = prism' (\x -> Resource "mem" (Scalar x) (Just "*") Nothing Nothing Nothing) $ \r ->
   if resourceName r == "mem"
     then r ^? value . scalar
     else Nothing
 
 disk :: Prism' Resource Double
-disk = prism' (\x -> Resource "disk" (Scalar x) (Just "*")) $ \r ->
+disk = prism' (\x -> Resource "disk" (Scalar x) (Just "*") Nothing Nothing Nothing) $ \r ->
   if resourceName r == "disk"
      then r ^? value . scalar
      else Nothing
 
 ports :: Prism' Resource [(Word64, Word64)]
-ports = prism' (\x -> Resource "ports" (Ranges x) (Just "*")) $ \r ->
+ports = prism' (\x -> Resource "ports" (Ranges x) (Just "*") Nothing Nothing Nothing) $ \r ->
   if resourceName r == "ports"
      then r ^? value . ranges
      else Nothing

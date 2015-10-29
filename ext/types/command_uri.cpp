@@ -6,7 +6,8 @@ using namespace mesos;
 CommandURIPtr toCommandURI(char* cmd,
 			   int cmdLen,
 			   bool* executable,
-			   bool* extract)
+         bool* extract,
+         bool* cache)
 {
   CommandURIPtr uri = new mesos::CommandInfo_URI();
   uri->set_value(cmd, cmdLen);
@@ -17,6 +18,9 @@ CommandURIPtr toCommandURI(char* cmd,
   if (extract != NULL)
     uri->set_extract(*extract);
 
+  if (cache != NULL)
+    uri->set_cache(*cache);
+
   return uri;
 }
 
@@ -26,7 +30,9 @@ void fromCommandURI(CommandURIPtr commandURI,
 		    bool* executableSet,
 		    bool* executable,
 		    bool* extractSet,
-		    bool* extract)
+        bool* extract,
+        bool* cacheSet,
+        bool* cache)
 {
   std::string* cmdStr = commandURI->mutable_value();
 
@@ -43,6 +49,12 @@ void fromCommandURI(CommandURIPtr commandURI,
     {
       *extractSet = true;
       *extract = commandURI->extract();
+    }
+
+  if (commandURI->has_cache())
+    {
+      *cacheSet = true;
+      *cache = commandURI->cache();
     }
 }
 

@@ -31,6 +31,7 @@ library
                        System.Mesos.Raw.ContainerId,
                        System.Mesos.Raw.ContainerInfo,
                        System.Mesos.Raw.Credential,
+                       System.Mesos.Raw.DiscoveryInfo
                        System.Mesos.Raw.Environment,
                        System.Mesos.Raw.EnvironmentVariable,
                        System.Mesos.Raw.Executor,
@@ -40,16 +41,19 @@ library
                        System.Mesos.Raw.FrameworkId,
                        System.Mesos.Raw.FrameworkInfo,
                        System.Mesos.Raw.HealthCheck,
+                       System.Mesos.Raw.Label
                        System.Mesos.Raw.MasterInfo,
                        System.Mesos.Raw.Offer,
                        System.Mesos.Raw.OfferId,
                        System.Mesos.Raw.Parameter,
                        System.Mesos.Raw.Parameters,
                        System.Mesos.Raw.PerformanceStatistics,
+                       System.Mesos.Raw.Port
                        System.Mesos.Raw.Request,
                        System.Mesos.Raw.Resource,
                        System.Mesos.Raw.ResourceStatistics,
                        System.Mesos.Raw.ResourceUsage,
+                       System.Mesos.Raw.ResourceUsageExecutor,
                        System.Mesos.Raw.Scheduler,
                        System.Mesos.Raw.SlaveId,
                        System.Mesos.Raw.SlaveInfo,
@@ -57,10 +61,15 @@ library
                        System.Mesos.Raw.TaskId,
                        System.Mesos.Raw.TaskInfo,
                        System.Mesos.Raw.TaskStatus,
+                       System.Mesos.Raw.TrafficControlStatistics,
                        System.Mesos.Raw.Value,
                        System.Mesos.Raw.Volume
   -- other-extensions:    
-  build-depends:       base >=4.7 && < 5, bytestring, lens, managed, template-haskell
+  build-depends:         base >=4.7 && < 5
+                       , bytestring
+                       , lens
+                       , managed
+                       , template-haskell
   hs-source-dirs:      src
   default-language:    Haskell2010
   include-dirs:        ext, /usr/include, /usr/local/include/mesos
@@ -75,6 +84,7 @@ library
                        ext/types/container_id.cpp,
                        ext/types/container_info.cpp,
                        ext/types/credential.cpp,
+                       ext/types/discovery_info.cpp
                        ext/types/environment.cpp,
                        ext/types/environment_variable.cpp,
                        ext/types/executor_id.cpp,
@@ -83,23 +93,27 @@ library
                        ext/types/framework_id.cpp,
                        ext/types/framework_info.cpp,
                        ext/types/health_check.cpp,
+                       ext/types/label.cpp
                        ext/types/master_info.cpp,
                        ext/types/offer.cpp,
                        ext/types/offer_id.cpp,
                        ext/types/parameter.cpp,
                        ext/types/parameters.cpp,
                        ext/types/performance_statistics.cpp,
+                       ext/types/port.cpp
                        ext/types/range.cpp,
                        ext/types/request.cpp,
                        ext/types/resource.cpp,
                        ext/types/resource_statistics.cpp,
                        ext/types/resource_usage.cpp,
+                       ext/types/resource_usage_executor.cpp,
                        ext/types/slave_id.cpp,
                        ext/types/slave_info.cpp,
                        ext/types/std_string.cpp,
                        ext/types/task_id.cpp,
                        ext/types/task_info.cpp,
                        ext/types/task_status.cpp,
+                       ext/types/traffic_control_statistics.cpp,
                        ext/types/value.cpp,
                        ext/types/volume.cpp
 
@@ -112,7 +126,15 @@ test-suite test
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
   hs-source-dirs:      test
-  build-depends:       base, hs-mesos, tasty, tasty-quickcheck, tasty-hunit, QuickCheck, bytestring, lens, managed
+  build-depends:         base
+                       , hs-mesos
+                       , tasty
+                       , tasty-quickcheck
+                       , tasty-hunit
+                       , QuickCheck
+                       , bytestring
+                       , lens
+                       , managed
   default-language:    Haskell2010
 
 executable test-executor

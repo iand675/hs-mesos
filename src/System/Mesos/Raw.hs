@@ -4,6 +4,7 @@ module System.Mesos.Raw (
   module System.Mesos.Raw.CommandUri,
   module System.Mesos.Raw.ContainerId,
   module System.Mesos.Raw.Credential,
+  module System.Mesos.Raw.DiscoveryInfo,
   module System.Mesos.Raw.Environment,
   module System.Mesos.Raw.EnvironmentVariable,
   module System.Mesos.Raw.Executor,
@@ -12,15 +13,19 @@ module System.Mesos.Raw (
   module System.Mesos.Raw.Filters,
   module System.Mesos.Raw.FrameworkId,
   module System.Mesos.Raw.FrameworkInfo,
+  module System.Mesos.Raw.Label,
   module System.Mesos.Raw.MasterInfo,
   module System.Mesos.Raw.Offer,
   module System.Mesos.Raw.OfferId,
   module System.Mesos.Raw.Parameter,
   module System.Mesos.Raw.Parameters,
+  module System.Mesos.Raw.Port,
   module System.Mesos.Raw.Request,
   module System.Mesos.Raw.Resource,
   module System.Mesos.Raw.ResourceStatistics,
+  module System.Mesos.Raw.TrafficControlStatistics,
   module System.Mesos.Raw.ResourceUsage,
+  module System.Mesos.Raw.ResourceUsageExecutor,
   module System.Mesos.Raw.Scheduler,
   module System.Mesos.Raw.SlaveId,
   module System.Mesos.Raw.SlaveInfo,
@@ -36,6 +41,7 @@ import           System.Mesos.Raw.CommandUri
 import           System.Mesos.Raw.ContainerId
 import           System.Mesos.Raw.ContainerInfo
 import           System.Mesos.Raw.Credential
+import           System.Mesos.Raw.DiscoveryInfo
 import           System.Mesos.Raw.Environment
 import           System.Mesos.Raw.EnvironmentVariable
 import           System.Mesos.Raw.Executor
@@ -44,15 +50,19 @@ import           System.Mesos.Raw.ExecutorInfo
 import           System.Mesos.Raw.Filters
 import           System.Mesos.Raw.FrameworkId
 import           System.Mesos.Raw.FrameworkInfo
+import           System.Mesos.Raw.Label
 import           System.Mesos.Raw.MasterInfo
 import           System.Mesos.Raw.Offer
 import           System.Mesos.Raw.OfferId
 import           System.Mesos.Raw.Parameter
 import           System.Mesos.Raw.Parameters
+import           System.Mesos.Raw.Port
 import           System.Mesos.Raw.Request
 import           System.Mesos.Raw.Resource
 import           System.Mesos.Raw.ResourceStatistics
+import           System.Mesos.Raw.TrafficControlStatistics
 import           System.Mesos.Raw.ResourceUsage
+import           System.Mesos.Raw.ResourceUsageExecutor
 import           System.Mesos.Raw.Scheduler
 import           System.Mesos.Raw.SlaveId
 import           System.Mesos.Raw.SlaveInfo

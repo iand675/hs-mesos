@@ -32,6 +32,7 @@ makePrisms ''Value
 makeFields ''Resource
 makeFields ''ResourceStatistics
 makeFields ''ResourceUsage
+makeFields ''ResourceUsageExecutor
 makeFields ''PerformanceStatistics
 makeFields ''Request
 makeFields ''Offer
@@ -44,3 +45,5 @@ makeFields ''Volume
 makeFields ''ContainerType
 makePrisms ''ContainerType
 makeFields ''ContainerInfo
+makeFields ''Port
+makeFields ''DiscoveryInfo

@@ -11,6 +11,7 @@ import           Foreign.C.Types
 import           System.Mesos.Internal
 import           System.Mesos.Raw.Attribute
 import           System.Mesos.Raw.Environment
+import           System.Mesos.Raw.Label
 import           System.Mesos.Raw.Parameter
 import           System.Mesos.Raw.Parameters
 import           System.Mesos.Scheduler
@@ -22,6 +23,7 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary
 import           Test.QuickCheck.Monadic
 
+markCalled :: Num a => IORef a -> IO ()
 markCalled r = modifyIORef r (+1)
 
 beforeAndAfter :: (Show a, CPPValue a) => a -> IO a
@@ -60,7 +62,11 @@ instance Arbitrary FrameworkInfo where
     <*> arbitrary
 
 instance Arbitrary CommandURI where
-  arbitrary = CommandURI <$> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = CommandURI
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary CommandValue where
   arbitrary = oneof
@@ -69,7 +75,11 @@ instance Arbitrary CommandValue where
     ]
 
 instance Arbitrary CommandInfo where
-  arbitrary = CommandInfo <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = CommandInfo
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary ExecutorInfo where
   arbitrary = ExecutorInfo
@@ -85,6 +95,7 @@ instance Arbitrary ExecutorInfo where
 instance Arbitrary MasterInfo where
   arbitrary = MasterInfo
     <$> arbitrary
+    <*> arbitrary
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
@@ -112,7 +123,26 @@ instance Arbitrary Attribute where
   arbitrary = Attribute <$> arbitrary <*> arbitrary
 
 instance Arbitrary Resource where
-  arbitrary = Resource <$> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = Resource
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
+instance Arbitrary TrafficControlStatistics where
+  arbitrary = TrafficControlStatistics
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary PerformanceStatistics where
   arbitrary = PerformanceStatistics
@@ -193,15 +223,35 @@ instance Arbitrary ResourceStatistics where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
+instance Arbitrary ResourceUsageExecutor where
+  arbitrary = ResourceUsageExecutor
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary ResourceUsage where
   arbitrary = ResourceUsage
     <$> arbitrary
-    <*> arbitrary
-    <*> arbitrary
-    <*> arbitrary
-    <*> arbitrary
-    <*> arbitrary
 
 instance Arbitrary Request where
   arbitrary = Request
@@ -261,13 +311,52 @@ instance Arbitrary TaskInfo where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary TaskState where
-  arbitrary = elements [Staging, Starting, TaskRunning, Finished, Failed, Killed, Lost]
+  arbitrary = elements
+    [ Staging
+    , Starting
+    , TaskRunning
+    , Finished
+    , Failed
+    , Killed
+    , Lost
+    ]
+
+instance Arbitrary TaskStatusSource where
+  arbitrary = elements [SourceExecutor, SourceMaster, SourceSlave]
+
+instance Arbitrary TaskStatusReason where
+  arbitrary = elements
+    [ ReasonCommandExecutorFailed
+    , ReasonExecutorPreempted
+    , ReasonExecutorTerminated
+    , ReasonExecutorUnregistered
+    , ReasonFrameworkRemoved
+    , ReasonGCError
+    , ReasonInvalidFrameworkId
+    , ReasonInvalidOffers
+    , ReasonMasterDisconnected
+    , ReasonMemoryLimit
+    , ReasonReconcilation
+    , ReasonResourcesUnkown
+    , ReasonSlaveDisconnected
+    , ReasonSlaveRemoved
+    , ReasonSlaveRestarted
+    , ReasonSlaveUnkown
+    , ReasonTaskInvalid
+    , ReasonTaskUnauthorized
+    , ReasonTaskUnknown
+    ]
 
 instance Arbitrary TaskStatus where
   arbitrary = TaskStatus
     <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
@@ -286,6 +375,29 @@ instance Arbitrary Parameters where
   arbitrary = Parameters <$> arbitrary
 instance Arbitrary Credential where
   arbitrary = Credential <$> arbitrary <*> arbitrary
+
+instance Arbitrary Port where
+  arbitrary = Port <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary Label where
+  arbitrary = Label <$> arbitrary
+
+instance Arbitrary DiscoveryInfo where
+  arbitrary = DiscoveryInfo
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
+instance Arbitrary Visibility where
+  arbitrary = elements
+    [ VisibilityFramework
+    , VisibilityCluster
+    , VisibilityExternal
+    ]
 
 idempotentMarshalling :: (Show a, Eq a, CPPValue a) => a -> IO a
 idempotentMarshalling x = with (cppValue x >>= unmarshal) return
@@ -307,6 +419,7 @@ prop_idempotentMarshalling g = monadicIO $ forAllM g $ \x -> do
 qcIM :: (Show a, Eq a, CPPValue a) => String -> Gen a -> TestTree
 qcIM n = testProperty n . prop_idempotentMarshalling
 
+testIDs :: TestTree
 testIDs = testGroup "Marshalling"
   [ qcIM "ExecutorInfo" (arbitrary :: Gen ExecutorInfo)
   , qcIM "TaskInfo" (arbitrary :: Gen TaskInfo)
@@ -327,7 +440,10 @@ testIDs = testGroup "Marshalling"
   , qcIM "Credential" (arbitrary :: Gen Credential)
   , qcIM "TaskStatus" (arbitrary :: Gen TaskStatus)
   , qcIM "ResourceUsage" (arbitrary :: Gen ResourceUsage)
+  , qcIM "ResourceUsageExecutor" (arbitrary :: Gen ResourceUsageExecutor)
   , qcIM "ResourceStatistics" (arbitrary :: Gen ResourceStatistics)
+  , qcIM "TrafficControlStatistics" (arbitrary :: Gen TrafficControlStatistics)
+  , qcIM "PerformanceStatistics" (arbitrary :: Gen TrafficControlStatistics)
   , qcIM "Parameters" (arbitrary :: Gen Parameters)
   , qcIM "Attribute" (arbitrary :: Gen Attribute)
   , qcIM "Resource" (arbitrary :: Gen Resource)
@@ -336,12 +452,17 @@ testIDs = testGroup "Marshalling"
   , qcIM "Request" (arbitrary :: Gen Request)
   , qcIM "Offer" (arbitrary :: Gen Offer)
   , qcIM "SlaveInfo" (arbitrary :: Gen SlaveInfo)
+  , qcIM "DiscoveryInfo" (arbitrary :: Gen DiscoveryInfo)
+  , qcIM "Port" (arbitrary :: Gen Port)
+  , qcIM "Label" (arbitrary :: Gen Label)
   ]
 
+executorTests :: TestTree
 executorTests = testGroup "Executor"
   [
   ]
 
+schedulerTests :: TestTree
 schedulerTests = testGroup "Scheduler"
   [
   ]

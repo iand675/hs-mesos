@@ -7,7 +7,7 @@ import qualified Data.ByteString.Char8  as C
 import           Data.IORef
 import           Data.Monoid            ((<>))
 import           System.Exit
-import           System.Mesos.Lens
+import           System.Mesos.Lens hiding (executorInfo)
 import           System.Mesos.Resources
 import           System.Mesos.Scheduler
 import           System.Mesos.Types     hiding (commandInfo)

@@ -14,7 +14,10 @@ TaskInfoPtr toTaskInfo(char* infoName,
 		       char* data,
 		       int dataLen,
 		       ContainerInfoPtr containerInfo,
-		       HealthCheckPtr healthCheck)
+           HealthCheckPtr healthCheck,
+           LabelPtr* labels,
+           int labelsCount,
+           DiscoveryInfoPtr discovery)
 {
   TaskInfoPtr info = new TaskInfo();
 
@@ -42,6 +45,15 @@ TaskInfoPtr toTaskInfo(char* infoName,
   if (healthCheck != NULL)
     info->mutable_health_check()->MergeFrom(*healthCheck);
 
+  Labels* lbs = new Labels();
+  for (int i = 0; i < labelsCount; ++i)
+    *lbs->add_labels() = *labels[i];
+
+  *info->mutable_labels() = *lbs;
+
+  if (discovery != NULL)
+    *info->mutable_discovery() = *discovery;
+
   return info;
 }
 
@@ -57,7 +69,10 @@ void fromTaskInfo(TaskInfoPtr taskInfo,
 		  char** data,
 		  int* dataLen,
 		  ContainerInfoPtr* containerInfo,
-		  HealthCheckPtr* healthCheck)
+      HealthCheckPtr* healthCheck,
+      LabelPtr** labels,
+      int* labelsCount,
+      DiscoveryInfoPtr* discovery)
 {
   std::string* in = taskInfo->mutable_name();
   *infoName = (char*) in->data();
@@ -70,7 +85,7 @@ void fromTaskInfo(TaskInfoPtr taskInfo,
     *executorInfo = taskInfo->mutable_executor();
 
   if (taskInfo->has_command())
-    *commandInfo = taskInfo->mutable_command();	
+    *commandInfo = taskInfo->mutable_command();
 
   if (taskInfo->has_data())
     {
@@ -83,6 +98,15 @@ void fromTaskInfo(TaskInfoPtr taskInfo,
 
   if (taskInfo->has_health_check())
     *healthCheck = taskInfo->mutable_health_check();
+
+  if (taskInfo->has_labels())
+    {
+      *labels = taskInfo->mutable_labels()->mutable_labels()->mutable_data();
+      *labelsCount = taskInfo->mutable_labels()->labels_size();
+    }
+
+  if (taskInfo->has_discovery())
+    *discovery = taskInfo->mutable_discovery();
 }
 
 void destroyTaskInfo(TaskInfoPtr taskInfo)

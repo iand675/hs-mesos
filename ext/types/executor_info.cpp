@@ -13,8 +13,7 @@ ExecutorInfoPtr toExecutorInfo(ExecutorIDPtr executorID,
 			       int nameLen,
 			       char* source,
 			       int sourceLen,
-			       char* data,
-			       int dataLen)
+             DiscoveryInfoPtr discovery)
 {
   ExecutorInfoPtr info = new ExecutorInfo();
   *info->mutable_executor_id() = *executorID;
@@ -32,8 +31,8 @@ ExecutorInfoPtr toExecutorInfo(ExecutorIDPtr executorID,
   if (source != NULL)
     info->set_source(source, sourceLen);
 
-  if (data != NULL)
-    info->set_data(data, dataLen);
+  if (discovery != NULL)
+    *info->mutable_discovery() = *discovery;
 
   return info;
 }
@@ -49,8 +48,7 @@ void fromExecutorInfo(ExecutorInfoPtr info,
 		      int* nameLen,
 		      char** source,
 		      int* sourceLen,
-		      char** data,
-		      int* dataLen)
+          DiscoveryInfoPtr* discovery)
 {
   *executorID = info->mutable_executor_id();
 
@@ -78,11 +76,9 @@ void fromExecutorInfo(ExecutorInfoPtr info,
       *sourceLen = s->size();
     }
 
-  if (info->has_data())
+  if (info->has_discovery())
     {
-      std::string* d = info->mutable_data();
-      *data = (char*) d->data();
-      *dataLen = d->size();
+      *discovery = info->mutable_discovery();
     }
 }
 
